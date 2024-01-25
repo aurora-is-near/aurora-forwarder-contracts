@@ -53,6 +53,7 @@ impl FeesCalculator {
             .into()
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub fn set_fee_percent(&mut self, percent: String) {
         match parse_percent(&percent) {
             Ok(value) => self.percent = value,
@@ -84,7 +85,7 @@ fn parse_percent(percent: &str) -> Result<U64, ParseError> {
 enum ParseError {
     ParseFloat(ParseFloatError),
     TooLowPercent,
-    TooHighPercent,
+    TooHighPercent,¬˚
 }
 
 impl Display for ParseError {
