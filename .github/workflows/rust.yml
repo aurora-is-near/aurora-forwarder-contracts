@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  fmt:
+    name: Formatting
+    runs-on: github-hosted-heavy-runner
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Run rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: github-hosted-heavy-runner
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install cargo-make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+      - name: Run clippy
+        run: cargo make clippy
+
+  tests:
+    name: Tests
+    runs-on: github-hosted-heavy-runner
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install cargo-make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-make
+      - name: Run tests
+        run: cargo make tests

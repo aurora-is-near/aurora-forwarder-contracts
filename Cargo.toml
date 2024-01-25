@@ -1,0 +1,43 @@
+[workspace.package]
+authors = ["Aurora Labs <hello@aurora.dev>"]
+version = "0.1.0"
+edition = "2021"
+homepage = "https://github.com/aurora-is-near/aurora-forwarder"
+repository = "https://github.com/aurora-is-near/aurora-forwarder"
+license = "CC0-1.0"
+readme = "README.md"
+publish = false
+
+[workspace]
+resolver = "2"
+members = [
+    "fees",
+    "forwarder",
+    "tests"
+]
+
+[workspace.dependencies]
+anyhow = "1"
+aurora-engine-types = "1"
+ethabi = "18"
+near-sdk = "4.1"
+near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", tag = "v0.2.0" }
+serde = { version = "1", features = ["derive"] }
+near-workspaces = "0.9"
+tokio = { version = "1", features = ["macros"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+codegen-units = 1
+opt-level = "z"
+lto = true
+
+[patch.crates-io]
+parity-secp256k1 = { git = 'https://github.com/paritytech/rust-secp256k1', rev = "d05fd8e" }

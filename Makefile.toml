@@ -1,0 +1,76 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[env]
+TARGET = "wasm32-unknown-unknown"
+FWD_WASM_FILE = "aurora-forwarder.wasm"
+FEES_WASM_FILE = "aurora-forward-fees.wasm"
+
+[tasks.build]
+dependencies = [
+    "build-contracts",
+    "cp-contracts",
+    "contract-stats"
+]
+
+[tasks.clippy]
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--all-targets"
+]
+
+
+[tasks.tests]
+command = "cargo"
+dependencies = [
+    "build"
+]
+args = [
+    "test",
+    "--all-targets"
+]
+
+[tasks.build-contracts]
+command = "cargo"
+env = { "RUSTFLAGS" = "-C link-arg=-s" }
+args = [
+    "build",
+    "--target",
+    "${TARGET}",
+    "--release",
+    "--workspace",
+    "--exclude",
+    "aurora-forwarder-tests"
+]
+
+[tasks.cp-contracts]
+script = """
+cp target/${TARGET}/release/aurora_forwarder.wasm res/${FWD_WASM_FILE}
+cp target/${TARGET}/release/aurora_forward_fees.wasm res/${FEES_WASM_FILE}
+"""
+
+[tasks.clean]
+dependencies = ["rm-contracts"]
+command = "cargo"
+args = [ "clean" ]
+
+[tasks.rm-contracts]
+script = "rm -rf res/${FWD_WASM_FILE} res/${FEES_WASM_FILE}"
+
+[tasks.contract-stats]
+category = "Tools"
+script = '''
+echo "Environment:"
+echo "    CARGO_MAKE_PROFILE:   ${CARGO_MAKE_PROFILE}"
+echo "    CARGO_FEATURES:       ${CARGO_FEATURES}"
+echo "    FWD_WASM_FILE:        ${FWD_WASM_FILE}"
+echo "    FWD_SIZE_WASM_FILE:   $(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')"
+echo "    FEES_WASM_FILE:       ${FEES_WASM_FILE}"
+echo "    FEES_SIZE_WASM_FILE:  $(wc -c res/${FEES_WASM_FILE} | awk '{print $1}')"
+echo "    TARGET_DIR:           ${TARGET_DIR}"
+echo "    RUSTFLAGS:            ${RUSTFLAGS}"
+echo "    Extra build args:     ${RELEASE} ${@}"
+'''

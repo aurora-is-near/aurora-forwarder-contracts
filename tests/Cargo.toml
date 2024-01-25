@@ -1,0 +1,24 @@
+[package]
+name = "aurora-forwarder-tests"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+publish.workspace = true
+
+[lints.clippy]
+all = "deny"
+nursery = "deny"
+pedantic = "deny"
+as_conversions = "deny"
+
+[dependencies]
+anyhow.workspace = true
+aurora-engine-types.workspace = true
+ethabi.workspace = true
+near-sdk.workspace = true
+near-workspaces.workspace = true
+tokio.workspace = true
