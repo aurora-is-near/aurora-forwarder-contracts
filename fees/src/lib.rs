@@ -85,7 +85,7 @@ fn parse_percent(percent: &str) -> Result<U64, ParseError> {
 enum ParseError {
     ParseFloat(ParseFloatError),
     TooLowPercent,
-    TooHighPercent,¬˚
+    TooHighPercent,
 }
 
 impl Display for ParseError {
