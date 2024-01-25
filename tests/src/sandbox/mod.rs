@@ -7,10 +7,10 @@ pub mod erc20;
 pub mod forwarder;
 pub mod fungible_token;
 
-const AURORA_WASM: &[u8] = include_bytes!("../../../res/aurora-mainnet.wasm");
-const FT_WASM: &[u8] = include_bytes!("../../../res/fungible-token.wasm");
-const FORWARDER_WASM: &[u8] = include_bytes!("../../../res/aurora-forwarder.wasm");
-const FEES_WASM: &[u8] = include_bytes!("../../../res/aurora-forward-fees.wasm");
+const AURORA_WASM_PATH: &str = "../res/aurora-mainnet.wasm";
+const FT_WASM_PATH: &str = "../res/fungible-token.wasm";
+const FORWARDER_WASM_PATH: &str = "../res/aurora-forwarder.wasm";
+const FEES_WASM_PATH: &str = "../res/aurora-forward-fees.wasm";
 const INIT_BALANCE_NEAR: u128 = 50;
 
 pub struct Sandbox {
@@ -66,7 +66,7 @@ impl Sandbox {
         let ft_contract_account = self
             .create_subaccount(&name_lower, INIT_BALANCE_NEAR)
             .await?;
-        let result = ft_contract_account.deploy(FT_WASM).await?;
+        let result = ft_contract_account.deploy(&code(FT_WASM_PATH)).await?;
         assert!(result.is_success());
 
         let contract = result.result;
@@ -92,7 +92,7 @@ impl Sandbox {
 
     pub async fn deploy_aurora(&self) -> anyhow::Result<Contract> {
         let aurora_account = self.create_subaccount("aurora", INIT_BALANCE_NEAR).await?;
-        let result = aurora_account.deploy(AURORA_WASM).await?;
+        let result = aurora_account.deploy(&code(AURORA_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
         let result = aurora_account
@@ -120,7 +120,7 @@ impl Sandbox {
         let fwd_account = self
             .create_subaccount("forwarder", INIT_BALANCE_NEAR)
             .await?;
-        let result = fwd_account.deploy(FORWARDER_WASM).await?;
+        let result = fwd_account.deploy(&code(FORWARDER_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
         let result = fwd_account
@@ -139,7 +139,7 @@ impl Sandbox {
 
     pub async fn deploy_fee(&self) -> anyhow::Result<Contract> {
         let fee_account = self.create_subaccount("fees", INIT_BALANCE_NEAR).await?;
-        let result = fee_account.deploy(FEES_WASM).await?;
+        let result = fee_account.deploy(&code(FEES_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
         let result = fee_account
@@ -151,4 +151,9 @@ impl Sandbox {
 
         Ok(contract)
     }
+}
+
+fn code(path: &str) -> Vec<u8> {
+    std::fs::read(path)
+        .unwrap_or_else(|e| panic!("couldn't get WASM code for with path: {path}, error: {e}"))
 }

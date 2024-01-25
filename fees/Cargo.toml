@@ -15,7 +15,6 @@ crate-type = ["cdylib", "rlib"]
 all = "deny"
 nursery = "deny"
 pedantic = "deny"
-as_conversions = "deny"
 
 [dependencies]
 near-sdk.workspace = true

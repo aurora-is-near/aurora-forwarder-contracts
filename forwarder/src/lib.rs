@@ -65,7 +65,7 @@ impl AuroraForwarder {
 
         ext_fees::ext(self.fees_contract_id.clone())
             .with_static_gas(CALCULATE_FEES_GAS)
-            .calculate_fees(amount, token_id, &self.target_network)
+            .calculate_fees(amount, token_id, &self.target_network, &self.target_address)
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_attached_deposit(2)
@@ -137,5 +137,6 @@ pub trait ExtFeesCalculator {
         amount: U128,
         token_id: &AccountId,
         target_network: &AccountId,
+        target_address: &str,
     ) -> U128;
 }

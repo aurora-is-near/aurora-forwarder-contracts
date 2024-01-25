@@ -54,7 +54,7 @@ async fn test_creating_erc20() {
 async fn test_main_successful_flow() {
     let receiver = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
     let forward_amount = 1_000_000_000;
-    let fee_percent = 10;
+    let fee_percent = 5;
     let sandbox = Sandbox::new().await.unwrap();
     let (ft, ft_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
 
