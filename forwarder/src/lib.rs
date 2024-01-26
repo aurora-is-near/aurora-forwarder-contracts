@@ -41,14 +41,14 @@ impl AuroraForwarder {
     }
 
     #[payable]
-    pub fn forward(&mut self, token_id: AccountId) -> Promise {
+    pub fn forward(&mut self, token_id: &AccountId) -> Promise {
         assert_one_yocto();
 
         ext_token::ext(token_id.clone())
             .with_static_gas(FT_BALANCE_GAS)
             .ft_balance_of(env::current_account_id())
             .then(
-                ext_self::ext(env::current_account_id())
+                Self::ext(env::current_account_id())
                     .with_attached_deposit(env::attached_deposit())
                     .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
                     .calculate_fees_callback(token_id),
@@ -67,10 +67,10 @@ impl AuroraForwarder {
             .with_static_gas(CALCULATE_FEES_GAS)
             .calculate_fees(amount, token_id, &self.target_network, &self.target_address)
             .then(
-                ext_self::ext(env::current_account_id())
+                Self::ext(env::current_account_id())
                     .with_attached_deposit(2)
                     .with_static_gas(FINISH_FORWARD_GAS)
-                    .finish_forward_callback(amount, token_id),
+                    .finish_forward_callback(amount, token_id.clone()),
             )
     }
 
@@ -100,19 +100,6 @@ impl AuroraForwarder {
                     .ft_transfer(self.fees_contract_id.clone(), fee),
             )
     }
-}
-
-#[ext_contract(ext_self)]
-pub trait ExtAuroraForwarder {
-    fn calculate_fees_callback(&mut self, #[callback] amount: U128, token_id: AccountId)
-        -> Promise;
-
-    fn finish_forward_callback(
-        &mut self,
-        #[callback] fee: U128,
-        amount: U128,
-        token_id: &AccountId,
-    ) -> Promise;
 }
 
 #[ext_contract(ext_token)]
