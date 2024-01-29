@@ -116,6 +116,7 @@ impl Sandbox {
         &self,
         target_network: &AccountId,
         address: &str,
+        fees_account_id: &AccountId,
     ) -> anyhow::Result<Contract> {
         let fwd_account = self
             .create_subaccount("forwarder", INIT_BALANCE_NEAR)
@@ -127,7 +128,8 @@ impl Sandbox {
             .call(contract.id(), "new")
             .args_json(json!({
                 "target_address": address,
-                "target_network": target_network
+                "target_network": target_network,
+                "fees_contract_id": fees_account_id
             }))
             .max_gas()
             .transact()
