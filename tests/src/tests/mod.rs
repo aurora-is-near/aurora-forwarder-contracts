@@ -32,8 +32,13 @@ async fn test_creating_ft() {
 async fn test_creating_forwarder() {
     let sandbox = Sandbox::new().await.unwrap();
     let aurora = sandbox.deploy_aurora().await.unwrap();
+    let fees = sandbox.deploy_fee().await.unwrap();
     let result = sandbox
-        .deploy_forwarder(aurora.id(), "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057")
+        .deploy_forwarder(
+            aurora.id(),
+            "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057",
+            fees.id(),
+        )
         .await;
     assert!(result.is_ok());
 }
@@ -64,14 +69,14 @@ async fn test_main_successful_flow() {
     let erc20 = aurora.deploy_erc20(ft.id()).await.unwrap();
     assert_eq!(erc20.balance_of(receiver).await, 0);
 
+    let fees = sandbox.deploy_fee().await.unwrap();
+    ft.storage_deposit(fees.id()).await.unwrap();
+
     let forwarder = sandbox
-        .deploy_forwarder(aurora.id(), receiver)
+        .deploy_forwarder(aurora.id(), receiver, fees.id())
         .await
         .unwrap();
     ft.storage_deposit(forwarder.id()).await.unwrap();
-
-    let fees = sandbox.deploy_fee().await.unwrap();
-    ft.storage_deposit(fees.id()).await.unwrap();
 
     ft.ft_transfer(&ft_owner, forwarder.as_account(), forward_amount)
         .await

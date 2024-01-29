@@ -5,7 +5,8 @@ use near_sdk::{
     Promise, PromiseOrValue,
 };
 
-const FEES_ACCOUNT_ID: &str = "fees.test.near";
+const MAX_FEE_PERCENT: u128 = 10;
+
 const FT_BALANCE_GAS: Gas = Gas(3_000_000_000_000);
 const CALCULATE_FEES_GAS: Gas = Gas(5_000_000_000_000);
 const FT_TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
@@ -27,10 +28,13 @@ impl AuroraForwarder {
     #[must_use]
     #[init]
     #[allow(clippy::needless_pass_by_value)]
-    pub fn new(target_address: String, target_network: AccountId) -> Self {
+    pub fn new(
+        target_address: String,
+        target_network: AccountId,
+        fees_contract_id: AccountId,
+    ) -> Self {
         let owner = env::predecessor_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
-        let fees_contract_id = AccountId::new_unchecked(FEES_ACCOUNT_ID.to_string());
 
         Self {
             target_address,
@@ -74,6 +78,11 @@ impl AuroraForwarder {
             )
     }
 
+    /// Callback which finishes the forward flow.
+    ///
+    /// # Panics
+    ///
+    /// Panics if percent of the provided fee is more than `MAX_FEE_PERCENT`.
     #[payable]
     pub fn finish_forward_callback(
         &mut self,
@@ -82,9 +91,13 @@ impl AuroraForwarder {
         token_id: AccountId,
     ) -> Promise {
         assert_self();
-        let amount = U128::from(amount.0.saturating_sub(fee.0));
+        assert!(
+            is_fee_allowed(amount, fee),
+            "The calculated fee couldn't be more than {MAX_FEE_PERCENT} %"
+        );
 
-        ext_token::ext(token_id.clone())
+        let amount = U128::from(amount.0.saturating_sub(fee.0));
+        let ft_transfer_call = ext_token::ext(token_id.clone())
             .with_attached_deposit(near_sdk::ONE_YOCTO)
             .with_static_gas(FT_TRANSFER_CALL_GAS)
             .ft_transfer_call(
@@ -92,13 +105,18 @@ impl AuroraForwarder {
                 amount,
                 None,
                 self.target_address.clone(),
-            )
-            .then(
+            );
+
+        if fee.0 > 0 {
+            ft_transfer_call.then(
                 ext_token::ext(token_id)
                     .with_attached_deposit(near_sdk::ONE_YOCTO)
                     .with_static_gas(FT_TRANSFER_GAS)
                     .ft_transfer(self.fees_contract_id.clone(), fee),
             )
+        } else {
+            ft_transfer_call
+        }
     }
 }
 
@@ -126,4 +144,32 @@ pub trait ExtFeesCalculator {
         target_network: &AccountId,
         target_address: &str,
     ) -> U128;
+}
+
+// Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
+fn is_fee_allowed(amount: U128, fee: U128) -> bool {
+    match (fee.0 * 100)
+        .checked_div(amount.0)
+        .zip((fee.0 * 100).checked_rem(amount.0))
+    {
+        Some((percent, _)) if percent > MAX_FEE_PERCENT => false,
+        Some((percent, reminder)) if percent == MAX_FEE_PERCENT && reminder > 0 => false,
+        _ => true,
+    }
+}
+
+#[test]
+fn test_is_fee_allowed() {
+    let amount = U128(4000);
+
+    assert!(is_fee_allowed(amount, U128(0))); // fee is 0
+    assert!(is_fee_allowed(amount, U128(40))); // 1 %
+    assert!(is_fee_allowed(amount, U128(400))); // 10 %
+
+    assert!(!is_fee_allowed(amount, U128(401))); // 10.025 %
+    assert!(!is_fee_allowed(amount, U128(420))); // 10.5 %
+    assert!(!is_fee_allowed(amount, U128(600))); // 15 %
+    assert!(!is_fee_allowed(amount, U128(2000))); // 50 %
+    assert!(!is_fee_allowed(amount, U128(4000))); // 100 %
+    assert!(!is_fee_allowed(amount, U128(6000))); // 150 %
 }
