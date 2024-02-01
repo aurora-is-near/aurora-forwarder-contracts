@@ -18,7 +18,6 @@ impl Forwarder for Contract {
             .transact()
             .await
             .unwrap();
-        dbg!(&result);
         assert!(result.is_success());
 
         Ok(())
