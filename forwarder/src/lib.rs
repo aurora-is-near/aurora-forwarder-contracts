@@ -2,8 +2,9 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
     assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Gas, PanicOnDefault,
-    Promise, PromiseOrValue,
+    Promise, PromiseOrValue, PublicKey,
 };
+use std::str::FromStr;
 
 const MAX_FEE_PERCENT: u128 = 10;
 
@@ -13,6 +14,9 @@ const FT_TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
 const FT_TRANSFER_CALL_GAS: Gas = Gas(30_000_000_000_000);
 const CALCULATE_FEES_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
 const FINISH_FORWARD_GAS: Gas = Gas(30_000_000_000_000);
+
+// Key is used for upgrading the smart contract.
+const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
 
 #[near_bindgen]
 #[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -27,12 +31,14 @@ pub struct AuroraForwarder {
 impl AuroraForwarder {
     #[must_use]
     #[init]
-    #[allow(clippy::needless_pass_by_value)]
+    #[allow(clippy::needless_pass_by_value, clippy::missing_panics_doc)]
     pub fn new(
         target_address: String,
         target_network: AccountId,
         fees_contract_id: AccountId,
     ) -> Self {
+        let pk = PublicKey::from_str(UPDATER_PK).unwrap();
+        let _ = Promise::new(env::current_account_id()).add_full_access_key(pk);
         let owner = env::predecessor_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
 

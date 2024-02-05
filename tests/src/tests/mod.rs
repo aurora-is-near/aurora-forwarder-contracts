@@ -1,8 +1,10 @@
 use crate::sandbox::{
     aurora::Aurora, forwarder::Forwarder, fungible_token::FungibleToken, Sandbox,
 };
-use near_workspaces::types::NearToken;
+use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
+use std::str::FromStr;
 
+const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 
 #[tokio::test]
@@ -57,7 +59,6 @@ async fn test_creating_erc20() {
 
 #[tokio::test]
 async fn test_main_successful_flow() {
-    let receiver = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
     let forward_amount = 1_000_000_000;
     let fee_percent = 5;
     let sandbox = Sandbox::new().await.unwrap();
@@ -67,13 +68,13 @@ async fn test_main_successful_flow() {
     ft.storage_deposit(aurora.id()).await.unwrap();
 
     let erc20 = aurora.deploy_erc20(ft.id()).await.unwrap();
-    assert_eq!(erc20.balance_of(receiver).await, 0);
+    assert_eq!(erc20.balance_of(RECEIVER).await, 0);
 
     let fees = sandbox.deploy_fee().await.unwrap();
     ft.storage_deposit(fees.id()).await.unwrap();
 
     let forwarder = sandbox
-        .deploy_forwarder(aurora.id(), receiver, fees.id())
+        .deploy_forwarder(aurora.id(), RECEIVER, fees.id())
         .await
         .unwrap();
     ft.storage_deposit(forwarder.id()).await.unwrap();
@@ -93,7 +94,7 @@ async fn test_main_successful_flow() {
     let fee = (forward_amount * fee_percent) / 100;
     let balance = forward_amount - fee;
 
-    assert_eq!(erc20.balance_of(receiver).await, balance);
+    assert_eq!(erc20.balance_of(RECEIVER).await, balance);
     assert_eq!(ft.ft_balance_of(aurora.as_account()).await, balance);
     assert_eq!(ft.ft_balance_of(fees.as_account()).await, fee);
     assert_eq!(ft.ft_balance_of(forwarder.as_account()).await, 0);
@@ -101,4 +102,18 @@ async fn test_main_successful_flow() {
         ft.ft_balance_of(&ft_owner).await,
         TOTAL_SUPPLY - forward_amount
     );
+}
+
+#[tokio::test]
+async fn test_using_full_access_key() {
+    let sandbox = Sandbox::new().await.unwrap();
+    let pk = PublicKey::from_str("ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno").unwrap();
+    let silo_account_id = "some.silo.near".parse().unwrap();
+    let fees_account_id = "fees.near".parse().unwrap();
+    let forwarder = sandbox
+        .deploy_forwarder(&silo_account_id, RECEIVER, &fees_account_id)
+        .await
+        .unwrap();
+    let key = forwarder.view_access_key(&pk).await.unwrap();
+    assert!(matches!(key.permission, AccessKeyPermission::FullAccess));
 }
