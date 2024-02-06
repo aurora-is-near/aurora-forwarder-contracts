@@ -286,6 +286,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aurora-engine-types",
+ "aurora-forwarder",
  "ethabi",
  "near-sdk",
  "near-workspaces",

@@ -37,10 +37,21 @@ impl AuroraForwarder {
         target_network: AccountId,
         fees_contract_id: AccountId,
     ) -> Self {
-        let pk = PublicKey::from_str(UPDATER_PK).unwrap();
-        let _ = Promise::new(env::current_account_id()).add_full_access_key(pk);
-        let owner = env::predecessor_account_id();
+        let current_account_id = env::current_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
+
+        assert!(
+            is_valid_account_id(
+                &current_account_id,
+                target_address.as_str(),
+                &target_network
+            ),
+            "Invalid format of the contract account id"
+        );
+
+        let pk = PublicKey::from_str(UPDATER_PK).unwrap();
+        let _ = Promise::new(current_account_id).add_full_access_key(pk);
+        let owner = env::predecessor_account_id();
 
         Self {
             target_address,
@@ -152,6 +163,16 @@ pub trait ExtFeesCalculator {
     ) -> U128;
 }
 
+/// Creates a prefix for the forwarder account id.
+#[must_use]
+pub fn forwarder_prefix(address: &str, target_network: &AccountId) -> String {
+    let address = address.trim_start_matches("0x");
+    let bytes = [address.as_bytes(), target_network.as_bytes()].concat();
+    near_sdk::bs58::encode(env::keccak256_array(&bytes))
+        .into_string()
+        .to_lowercase()
+}
+
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
 fn is_fee_allowed(amount: U128, fee: U128) -> bool {
     match (fee.0 * 100)
@@ -161,6 +182,16 @@ fn is_fee_allowed(amount: U128, fee: U128) -> bool {
         Some((percent, _)) if percent > MAX_FEE_PERCENT => false,
         Some((percent, reminder)) if percent == MAX_FEE_PERCENT && reminder > 0 => false,
         _ => true,
+    }
+}
+
+// Validate that forwarder account id has correct format.
+fn is_valid_account_id(account_id: &AccountId, address: &str, target_network: &AccountId) -> bool {
+    let calculated_prefix = forwarder_prefix(address, target_network);
+
+    match account_id.as_str().split_once('.') {
+        Some((contract_prefix, _)) => contract_prefix == calculated_prefix,
+        _ => false,
     }
 }
 
@@ -178,4 +209,31 @@ fn test_is_fee_allowed() {
     assert!(!is_fee_allowed(amount, U128(2000))); // 50 %
     assert!(!is_fee_allowed(amount, U128(4000))); // 100 %
     assert!(!is_fee_allowed(amount, U128(6000))); // 150 %
+}
+
+#[test]
+fn test_is_valid_account_id() {
+    assert!(is_valid_account_id(
+        &"8kw8swcmunzuanqbluqfwym4q8dxqpyjkjs7qqwpbluq.test.naar"
+            .parse()
+            .unwrap(),
+        "872a7faa3fd5c5129d0280b55d0639b840cb9f63",
+        &"silo-1.near".parse().unwrap(),
+    ));
+
+    assert!(is_valid_account_id(
+        &"f4dlqigd5psykkz6kennmmvmdfq7fdetiuchemwmapnd.test.naar"
+            .parse()
+            .unwrap(),
+        "61fa6bbf21287633db939dc38f5d0e68f1083062",
+        &"silo-2.near".parse().unwrap(),
+    ));
+
+    assert!(!is_valid_account_id(
+        &"f4dlqigd5psykkz6kennmmvmdfq7fdetiuchemwmapnd.test.naar"
+            .parse()
+            .unwrap(),
+        "61fa6bbf21287633db939dc38f5d0e68f1083062",
+        &"silo-3.near".parse().unwrap(),
+    ));
 }

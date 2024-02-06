@@ -16,6 +16,8 @@ pedantic = "deny"
 as_conversions = "deny"
 
 [dependencies]
+aurora-forwarder = {  path = "../forwarder" }
+
 anyhow.workspace = true
 aurora-engine-types.workspace = true
 ethabi.workspace = true
