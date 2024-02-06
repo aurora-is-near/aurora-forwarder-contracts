@@ -104,6 +104,79 @@ async fn test_main_successful_flow() {
     );
 }
 
+#[allow(clippy::similar_names)]
+#[tokio::test]
+async fn test_forward_two_tokens() {
+    let forward_amount = 1_000_000_000;
+    let fee_percent = 5;
+    let sandbox = Sandbox::new().await.unwrap();
+    let (usdt, usdt_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
+    let (usdc, usdc_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDC", 6).await.unwrap();
+
+    let aurora = sandbox.deploy_aurora().await.unwrap();
+    usdt.storage_deposit(aurora.id()).await.unwrap();
+    usdc.storage_deposit(aurora.id()).await.unwrap();
+
+    let usdt_erc20 = aurora.deploy_erc20(usdt.id()).await.unwrap();
+    let usdc_erc20 = aurora.deploy_erc20(usdc.id()).await.unwrap();
+    assert_eq!(usdt_erc20.balance_of(RECEIVER).await, 0);
+    assert_eq!(usdc_erc20.balance_of(RECEIVER).await, 0);
+
+    let fees = sandbox.deploy_fee().await.unwrap();
+    usdt.storage_deposit(fees.id()).await.unwrap();
+    usdc.storage_deposit(fees.id()).await.unwrap();
+
+    let forwarder = sandbox
+        .deploy_forwarder(aurora.id(), RECEIVER, fees.id())
+        .await
+        .unwrap();
+    usdt.storage_deposit(forwarder.id()).await.unwrap();
+    usdc.storage_deposit(forwarder.id()).await.unwrap();
+
+    usdt.ft_transfer(&usdt_owner, forwarder.as_account(), forward_amount)
+        .await
+        .unwrap();
+    usdc.ft_transfer(&usdc_owner, forwarder.as_account(), forward_amount)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        usdt.ft_balance_of(forwarder.as_account()).await,
+        forward_amount
+    );
+    assert_eq!(
+        usdc.ft_balance_of(forwarder.as_account()).await,
+        forward_amount
+    );
+    assert_eq!(usdt.ft_balance_of(aurora.as_account()).await, 0);
+    assert_eq!(usdc.ft_balance_of(aurora.as_account()).await, 0);
+
+    forwarder.forward(usdt.id()).await.unwrap();
+    forwarder.forward(usdc.id()).await.unwrap();
+
+    let fee = (forward_amount * fee_percent) / 100;
+    let balance = forward_amount - fee;
+
+    // Check USDT
+    assert_eq!(usdt_erc20.balance_of(RECEIVER).await, balance);
+    assert_eq!(usdt.ft_balance_of(aurora.as_account()).await, balance);
+    assert_eq!(usdt.ft_balance_of(fees.as_account()).await, fee);
+    assert_eq!(usdt.ft_balance_of(forwarder.as_account()).await, 0);
+    assert_eq!(
+        usdt.ft_balance_of(&usdt_owner).await,
+        TOTAL_SUPPLY - forward_amount
+    );
+    // Check USDC
+    assert_eq!(usdc_erc20.balance_of(RECEIVER).await, balance);
+    assert_eq!(usdc.ft_balance_of(aurora.as_account()).await, balance);
+    assert_eq!(usdc.ft_balance_of(fees.as_account()).await, fee);
+    assert_eq!(usdc.ft_balance_of(forwarder.as_account()).await, 0);
+    assert_eq!(
+        usdc.ft_balance_of(&usdc_owner).await,
+        TOTAL_SUPPLY - forward_amount
+    );
+}
+
 #[tokio::test]
 async fn test_using_full_access_key() {
     let sandbox = Sandbox::new().await.unwrap();
