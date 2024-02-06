@@ -37,16 +37,12 @@ impl AuroraForwarder {
         target_network: AccountId,
         fees_contract_id: AccountId,
     ) -> Self {
-        assert!(
-            !env::state_exists(),
-            "State of the contract is already exist"
-        );
-
+        let current_account_id = env::current_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
 
         assert!(
             is_valid_account_id(
-                &env::current_account_id(),
+                &current_account_id,
                 target_address.as_str(),
                 &target_network
             ),
@@ -54,7 +50,7 @@ impl AuroraForwarder {
         );
 
         let pk = PublicKey::from_str(UPDATER_PK).unwrap();
-        let _ = Promise::new(env::current_account_id()).add_full_access_key(pk);
+        let _ = Promise::new(current_account_id).add_full_access_key(pk);
         let owner = env::predecessor_account_id();
 
         Self {
@@ -167,6 +163,16 @@ pub trait ExtFeesCalculator {
     ) -> U128;
 }
 
+/// Creates a prefix for the forwarder account id.
+#[must_use]
+pub fn forwarder_prefix(address: &str, target_network: &AccountId) -> String {
+    let address = address.trim_start_matches("0x");
+    let bytes = [address.as_bytes(), target_network.as_bytes()].concat();
+    near_sdk::bs58::encode(env::keccak256_array(&bytes))
+        .into_string()
+        .to_lowercase()
+}
+
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
 fn is_fee_allowed(amount: U128, fee: U128) -> bool {
     match (fee.0 * 100)
@@ -179,6 +185,7 @@ fn is_fee_allowed(amount: U128, fee: U128) -> bool {
     }
 }
 
+// Validate that forwarder account id has correct format.
 fn is_valid_account_id(account_id: &AccountId, address: &str, target_network: &AccountId) -> bool {
     let calculated_prefix = forwarder_prefix(address, target_network);
 
@@ -186,13 +193,6 @@ fn is_valid_account_id(account_id: &AccountId, address: &str, target_network: &A
         Some((contract_prefix, _)) => contract_prefix == calculated_prefix,
         _ => false,
     }
-}
-
-fn forwarder_prefix(address: &str, target_network: &AccountId) -> String {
-    let bytes = [address.as_bytes(), target_network.as_bytes()].concat();
-    near_sdk::bs58::encode(env::keccak256_array(&bytes))
-        .into_string()
-        .to_lowercase()
 }
 
 #[test]

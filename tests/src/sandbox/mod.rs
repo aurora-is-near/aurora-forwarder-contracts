@@ -1,3 +1,4 @@
+use aurora_forwarder::forwarder_prefix;
 use near_sdk::serde_json::json;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, AccountId, Contract, Worker};
@@ -6,7 +7,6 @@ pub mod aurora;
 pub mod erc20;
 pub mod forwarder;
 pub mod fungible_token;
-mod utils;
 
 const AURORA_WASM_PATH: &str = "../res/aurora-mainnet.wasm";
 const FT_WASM_PATH: &str = "../res/fungible-token.wasm";
@@ -119,7 +119,7 @@ impl Sandbox {
         address: &str,
         fees_account_id: &AccountId,
     ) -> anyhow::Result<Contract> {
-        let name = utils::forwarder_prefix(address, target_network);
+        let name = forwarder_prefix(address, &target_network.as_str().parse().unwrap());
         let fwd_account = self.create_subaccount(&name, INIT_BALANCE_NEAR).await?;
         let result = fwd_account.deploy(&code(FORWARDER_WASM_PATH)).await?;
         assert!(result.is_success());
