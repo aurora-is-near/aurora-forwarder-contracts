@@ -281,16 +281,19 @@ async fn test_successful_complicated_flow() {
             target_network: silo3.id().as_str().parse().unwrap(),
         },
     ];
-    let forward_ids = factory.create(&parameters).await.unwrap();
+    let forward_ids: [_; 3] = factory
+        .create(&parameters)
+        .await
+        .unwrap()
+        .try_into()
+        .unwrap();
 
     for fwd_id in &forward_ids {
         usdt.storage_deposit(fwd_id).await.unwrap();
         usdc.storage_deposit(fwd_id).await.unwrap();
     }
 
-    let [ref alice_fwd, ref bob_fwd, ref john_fwd] = forward_ids[..] else {
-        panic!("")
-    };
+    let [alice_fwd, bob_fwd, john_fwd] = &forward_ids;
 
     usdt.ft_transfer(&usdt_owner, alice_fwd, 8_000_000)
         .await
