@@ -1,3 +1,4 @@
+use forwarder_utils::forwarder_prefix;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
@@ -44,7 +45,8 @@ impl AuroraForwarder {
             is_valid_account_id(
                 &current_account_id,
                 target_address.as_str(),
-                &target_network
+                &target_network,
+                &fees_contract_id
             ),
             "Invalid format of the contract account id"
         );
@@ -163,16 +165,6 @@ pub trait ExtFeesCalculator {
     ) -> U128;
 }
 
-/// Creates a prefix for the forwarder account id.
-#[must_use]
-pub fn forwarder_prefix(address: &str, target_network: &AccountId) -> String {
-    let address = address.trim_start_matches("0x");
-    let bytes = [address.as_bytes(), target_network.as_bytes()].concat();
-    near_sdk::bs58::encode(env::keccak256_array(&bytes))
-        .into_string()
-        .to_lowercase()
-}
-
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
 fn is_fee_allowed(amount: U128, fee: U128) -> bool {
     match (fee.0 * 100)
@@ -186,8 +178,13 @@ fn is_fee_allowed(amount: U128, fee: U128) -> bool {
 }
 
 // Validate that forwarder account id has correct format.
-fn is_valid_account_id(account_id: &AccountId, address: &str, target_network: &AccountId) -> bool {
-    let calculated_prefix = forwarder_prefix(address, target_network);
+fn is_valid_account_id(
+    account_id: &AccountId,
+    address: &str,
+    target_network: &AccountId,
+    fees_contract_id: &AccountId,
+) -> bool {
+    let calculated_prefix = forwarder_prefix(address, target_network, fees_contract_id);
 
     match account_id.as_str().split_once('.') {
         Some((contract_prefix, _)) => contract_prefix == calculated_prefix,
@@ -213,20 +210,24 @@ fn test_is_fee_allowed() {
 
 #[test]
 fn test_is_valid_account_id() {
+    let fees_account_id = "fees.test.near".parse().unwrap();
+
     assert!(is_valid_account_id(
-        &"8kw8swcmunzuanqbluqfwym4q8dxqpyjkjs7qqwpbluq.test.naar"
+        &"bk19tjl6h85n9waki5rpaajmwck6w5mjhjt1falg88bk.test.naar"
             .parse()
             .unwrap(),
         "872a7faa3fd5c5129d0280b55d0639b840cb9f63",
         &"silo-1.near".parse().unwrap(),
+        &fees_account_id,
     ));
 
     assert!(is_valid_account_id(
-        &"f4dlqigd5psykkz6kennmmvmdfq7fdetiuchemwmapnd.test.naar"
+        &"acbgmas72tf1lcud3uvjftx15fa1fhjlbjuj86ztwchj.test.naar"
             .parse()
             .unwrap(),
         "61fa6bbf21287633db939dc38f5d0e68f1083062",
         &"silo-2.near".parse().unwrap(),
+        &fees_account_id,
     ));
 
     assert!(!is_valid_account_id(
@@ -235,5 +236,6 @@ fn test_is_valid_account_id() {
             .unwrap(),
         "61fa6bbf21287633db939dc38f5d0e68f1083062",
         &"silo-3.near".parse().unwrap(),
+        &fees_account_id,
     ));
 }

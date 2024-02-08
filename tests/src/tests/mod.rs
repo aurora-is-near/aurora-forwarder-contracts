@@ -1,11 +1,14 @@
 use crate::sandbox::{
-    aurora::Aurora, forwarder::Forwarder, fungible_token::FungibleToken, Sandbox,
+    aurora::Aurora, factory::Factory, forwarder::Forwarder, fungible_token::FungibleToken, Sandbox,
 };
+use aurora_engine_types::types::Address;
+use aurora_forwarder_factory::DeployParameters;
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use std::str::FromStr;
 
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
+const MAX_NUM_CONTRACTS: u8 = 10;
 
 #[tokio::test]
 async fn test_creating_ft() {
@@ -13,7 +16,8 @@ async fn test_creating_ft() {
     let (ft, ft_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
     let owner_balance = ft.ft_balance_of(&ft_owner).await;
     assert_eq!(owner_balance, TOTAL_SUPPLY);
-    let alice = sandbox.create_subaccount("alice", 10).await.unwrap();
+    let balance = NearToken::from_near(10);
+    let alice = sandbox.create_subaccount("alice", balance).await.unwrap();
     assert_eq!(
         sandbox.balance(alice.id()).await,
         NearToken::from_near(10).as_yoctonear()
@@ -34,7 +38,7 @@ async fn test_creating_ft() {
 async fn test_creating_forwarder() {
     let sandbox = Sandbox::new().await.unwrap();
     let aurora = sandbox.deploy_aurora().await.unwrap();
-    let fees = sandbox.deploy_fee().await.unwrap();
+    let fees = sandbox.deploy_fee(vec![]).await.unwrap();
     let result = sandbox
         .deploy_forwarder(
             aurora.id(),
@@ -70,7 +74,7 @@ async fn test_main_successful_flow() {
     let erc20 = aurora.deploy_erc20(ft.id()).await.unwrap();
     assert_eq!(erc20.balance_of(RECEIVER).await, 0);
 
-    let fees = sandbox.deploy_fee().await.unwrap();
+    let fees = sandbox.deploy_fee(vec![ft.id().clone()]).await.unwrap();
     ft.storage_deposit(fees.id()).await.unwrap();
 
     let forwarder = sandbox
@@ -122,7 +126,10 @@ async fn test_forward_two_tokens() {
     assert_eq!(usdt_erc20.balance_of(RECEIVER).await, 0);
     assert_eq!(usdc_erc20.balance_of(RECEIVER).await, 0);
 
-    let fees = sandbox.deploy_fee().await.unwrap();
+    let fees = sandbox
+        .deploy_fee(vec![usdt.id().clone(), usdc.id().clone()])
+        .await
+        .unwrap();
     usdt.storage_deposit(fees.id()).await.unwrap();
     usdc.storage_deposit(fees.id()).await.unwrap();
 
@@ -189,4 +196,24 @@ async fn test_using_full_access_key() {
         .unwrap();
     let key = forwarder.view_access_key(&pk).await.unwrap();
     assert!(matches!(key.permission, AccessKeyPermission::FullAccess));
+}
+
+#[tokio::test]
+async fn test_using_factory() {
+    let sandbox = Sandbox::new().await.unwrap();
+    let fees = sandbox.deploy_fee(vec![]).await.unwrap();
+    let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
+    let forwarder_ids = (0..MAX_NUM_CONTRACTS)
+        .map(|i| DeployParameters {
+            target_address: Address::from_array([i; 20]).encode(),
+            target_network: format!("silo-{i}.test.near").parse().unwrap(),
+        })
+        .collect::<Vec<_>>();
+    let forwarder_ids = factory.create(forwarder_ids).await.unwrap();
+
+    assert_eq!(forwarder_ids.len(), 10);
+
+    for id in forwarder_ids {
+        assert!(sandbox.balance(&id).await > NearToken::from_millinear(1800).as_yoctonear());
+    }
 }

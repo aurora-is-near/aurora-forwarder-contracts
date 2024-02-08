@@ -11,9 +11,11 @@ publish = false
 [workspace]
 resolver = "2"
 members = [
+    "factory",
     "fees",
     "forwarder",
-    "tests"
+    "tests",
+    "utils"
 ]
 
 [workspace.dependencies]

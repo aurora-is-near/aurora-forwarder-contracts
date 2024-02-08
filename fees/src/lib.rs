@@ -1,6 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{U128, U64};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
+use near_sdk::{env, near_bindgen, AccountId, IntoStorageKey, PanicOnDefault};
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::num::ParseFloatError;
@@ -12,10 +13,11 @@ const MAX_FEE_PERCENT: u64 = 1000; // 10 %
 const DEFAULT_PERCENT: U64 = U64(500); // 5%
 
 #[near_bindgen]
-#[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FeesCalculator {
     percent: U64,
     owner: AccountId,
+    supported_tokens: BTreeSet<AccountId>,
 }
 
 #[near_bindgen]
@@ -27,16 +29,15 @@ impl FeesCalculator {
     /// The constructor panics if the state already exists.
     #[init]
     #[must_use]
-    pub fn new() -> Self {
-        assert!(!env::state_exists());
-
+    pub fn new(tokens: Vec<AccountId>) -> Self {
         Self {
             percent: DEFAULT_PERCENT,
             owner: env::predecessor_account_id(),
+            supported_tokens: tokens.into_iter().collect(),
         }
     }
 
-    /// Calculates and returns the fee for the corresponding token and Aurora Network.
+    /// Calculate and return the fee for the corresponding token and Aurora Network.
     #[must_use]
     pub fn calculate_fees(
         &self,
@@ -45,13 +46,17 @@ impl FeesCalculator {
         target_network: &AccountId,
         target_address: String,
     ) -> U128 {
-        let _ = (token_id, target_network, target_address);
+        let _ = (target_network, target_address);
 
-        u128::from(self.percent.0)
-            .checked_mul(amount.0)
-            .unwrap_or_default()
-            .saturating_div(10000)
-            .into()
+        if self.supported_tokens.contains(token_id) {
+            u128::from(self.percent.0)
+                .checked_mul(amount.0)
+                .unwrap_or_default()
+                .saturating_div(10000)
+                .into()
+        } else {
+            0.into()
+        }
     }
 
     /// Set the percent of the fee.
@@ -69,10 +74,54 @@ impl FeesCalculator {
         }
     }
 
+    /// Returns current fee percent.
     #[must_use]
     #[allow(clippy::cast_precision_loss)]
     pub fn get_fee_percent(&self) -> String {
         format!("{:.2}", self.percent.0 as f64 / 100.0)
+    }
+
+    /// Return a list of supported tokens.
+    #[must_use]
+    pub fn supported_tokens(&self) -> Vec<&AccountId> {
+        self.supported_tokens.iter().collect()
+    }
+
+    /// Add an account id of a new supported NEP-141 token.
+    ///
+    /// # Panics
+    ///
+    /// Panic if the added token is already exist.
+    pub fn add_supported_token(&mut self, token_id: AccountId) {
+        assert!(
+            self.supported_tokens.insert(token_id),
+            "Token is already present"
+        );
+    }
+
+    /// Remove the token from the list of supported.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the removed token is not exists.
+    pub fn remove_supported_token(&mut self, token_id: &AccountId) {
+        assert!(
+            self.supported_tokens.remove(token_id),
+            "Nothing to remove, token: {token_id} hasn't been added"
+        );
+    }
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+enum KeyPrefix {
+    SupportedTokens,
+}
+
+impl IntoStorageKey for KeyPrefix {
+    fn into_storage_key(self) -> Vec<u8> {
+        match self {
+            Self::SupportedTokens => b"supported_tokens".to_vec(),
+        }
     }
 }
 
@@ -151,8 +200,35 @@ mod tests {
     }
 
     #[test]
+    fn test_check_supported_tokens() {
+        let aurora = "aurora".parse().unwrap();
+        let target_address = "0xea2342".to_string();
+        let usdt = "usdt.near".parse().unwrap();
+        let mut contract = FeesCalculator::new(vec![]);
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            0.into() // we don't support the `usdt.near` yet, so we get 0 here
+        );
+
+        contract.add_supported_token(usdt.clone());
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            50.into()
+        );
+
+        contract.remove_supported_token(&usdt);
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
+            0.into()
+        );
+    }
+
+    #[test]
     fn test_set_percent() {
-        let mut contract = FeesCalculator::new();
+        let mut contract = FeesCalculator::new(vec![]);
 
         assert_eq!(contract.get_fee_percent(), "5.00");
         contract.set_fee_percent("6".to_string());
@@ -166,14 +242,14 @@ mod tests {
         expected = "Couldn't parse percent: provided percent could contain only 2 decimals"
     )]
     fn test_set_percent_with_many_decimals() {
-        let mut contract = FeesCalculator::new();
+        let mut contract = FeesCalculator::new(vec![]);
         contract.set_fee_percent("6.123".to_string());
     }
 
     #[test]
     #[should_panic(expected = "Couldn't parse percent: provided percent is more than 10%")]
     fn test_set_too_high_percents() {
-        let mut contract = FeesCalculator::new();
+        let mut contract = FeesCalculator::new(vec![]);
         contract.set_fee_percent("12.12".to_string());
     }
 }
