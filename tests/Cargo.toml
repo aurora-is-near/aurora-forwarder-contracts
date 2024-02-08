@@ -16,7 +16,8 @@ pedantic = "deny"
 as_conversions = "deny"
 
 [dependencies]
-aurora-forwarder = {  path = "../forwarder" }
+aurora-forwarder-factory = { path = "../factory" }
+forwarder-utils = {  path = "../utils" }
 
 anyhow.workspace = true
 aurora-engine-types.workspace = true

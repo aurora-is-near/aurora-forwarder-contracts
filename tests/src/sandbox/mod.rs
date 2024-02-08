@@ -1,10 +1,11 @@
-use aurora_forwarder::forwarder_prefix;
+use forwarder_utils::forwarder_prefix;
 use near_sdk::serde_json::json;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, AccountId, Contract, Worker};
 
 pub mod aurora;
 pub mod erc20;
+pub mod factory;
 pub mod forwarder;
 pub mod fungible_token;
 
@@ -12,7 +13,9 @@ const AURORA_WASM_PATH: &str = "../res/aurora-mainnet.wasm";
 const FT_WASM_PATH: &str = "../res/fungible-token.wasm";
 const FORWARDER_WASM_PATH: &str = "../res/aurora-forwarder.wasm";
 const FEES_WASM_PATH: &str = "../res/aurora-forward-fees.wasm";
-const INIT_BALANCE_NEAR: u128 = 50;
+const FACTORY_WASM_PATH: &str = "../res/aurora-forwarder-factory.wasm";
+const INIT_BALANCE_NEAR: NearToken = NearToken::from_near(50);
+const FORWARDER_MIN_BALANCE: NearToken = NearToken::from_near(2);
 
 pub struct Sandbox {
     worker: Worker<near_workspaces::network::Sandbox>,
@@ -33,11 +36,11 @@ impl Sandbox {
     pub async fn create_subaccount(
         &self,
         name: &str,
-        init_balance: u128,
+        balance: NearToken,
     ) -> anyhow::Result<Account> {
         self.root_account
             .create_subaccount(name)
-            .initial_balance(NearToken::from_near(init_balance))
+            .initial_balance(balance)
             .transact()
             .await
             .map(|result| result.result)
@@ -119,8 +122,12 @@ impl Sandbox {
         address: &str,
         fees_account_id: &AccountId,
     ) -> anyhow::Result<Contract> {
-        let name = forwarder_prefix(address, &target_network.as_str().parse().unwrap());
-        let fwd_account = self.create_subaccount(&name, INIT_BALANCE_NEAR).await?;
+        let name = forwarder_prefix(
+            address,
+            &target_network.as_str().parse().unwrap(),
+            &fees_account_id.as_str().parse().unwrap(),
+        );
+        let fwd_account = self.create_subaccount(&name, FORWARDER_MIN_BALANCE).await?;
         let result = fwd_account.deploy(&code(FORWARDER_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
@@ -134,18 +141,41 @@ impl Sandbox {
             .max_gas()
             .transact()
             .await?;
+        dbg!(&result);
+        println!("balance: {}", self.balance(fwd_account.id()).await);
         assert!(result.is_success());
 
         Ok(contract)
     }
 
-    pub async fn deploy_fee(&self) -> anyhow::Result<Contract> {
+    pub async fn deploy_fee(&self, supported_tokens: Vec<AccountId>) -> anyhow::Result<Contract> {
         let fee_account = self.create_subaccount("fees", INIT_BALANCE_NEAR).await?;
         let result = fee_account.deploy(&code(FEES_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
         let result = fee_account
             .call(contract.id(), "new")
+            .args_json(json!({
+                "tokens": supported_tokens
+            }))
+            .max_gas()
+            .transact()
+            .await?;
+        assert!(result.is_success());
+
+        Ok(contract)
+    }
+
+    pub async fn deploy_factory(&self, fees_contract_id: &AccountId) -> anyhow::Result<Contract> {
+        let factory_account = self.create_subaccount("factory", INIT_BALANCE_NEAR).await?;
+        let result = factory_account.deploy(&code(FACTORY_WASM_PATH)).await?;
+        assert!(result.is_success());
+        let contract = result.result;
+        let result = factory_account
+            .call(contract.id(), "new")
+            .args_json(json!({
+                "fees_contract_id": fees_contract_id
+            }))
             .max_gas()
             .transact()
             .await?;

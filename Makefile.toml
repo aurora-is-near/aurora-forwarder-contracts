@@ -5,17 +5,24 @@ skip_core_tasks = true
 [env]
 TARGET = "wasm32-unknown-unknown"
 FWD_WASM_FILE = "aurora-forwarder.wasm"
+FWD_FACTORY_WASM_FILE = "aurora-forwarder-factory.wasm"
 FEES_WASM_FILE = "aurora-forward-fees.wasm"
 
 [tasks.build]
 dependencies = [
     "build-contracts",
     "cp-contracts",
+    "build-factory",
+    "cp-factory",
     "contract-stats"
 ]
 
 [tasks.clippy]
 command = "cargo"
+dependencies = [
+    "build-contracts",
+    "cp-contracts",
+]
 args = [
     "clippy",
     "--workspace",
@@ -43,7 +50,21 @@ args = [
     "--release",
     "--workspace",
     "--exclude",
-    "aurora-forwarder-tests"
+    "aurora-forwarder-tests",
+    "--exclude",
+    "aurora-forwarder-factory"
+]
+
+[tasks.build-factory]
+command = "cargo"
+env = { "RUSTFLAGS" = "-C link-arg=-s" }
+args = [
+    "build",
+    "--target",
+    "${TARGET}",
+    "--release",
+    "-p",
+    "aurora-forwarder-factory"
 ]
 
 [tasks.cp-contracts]
@@ -52,13 +73,18 @@ cp target/${TARGET}/release/aurora_forwarder.wasm res/${FWD_WASM_FILE}
 cp target/${TARGET}/release/aurora_forward_fees.wasm res/${FEES_WASM_FILE}
 """
 
+[tasks.cp-factory]
+script = """
+cp target/${TARGET}/release/aurora_forwarder_factory.wasm res/${FWD_FACTORY_WASM_FILE}
+"""
+
 [tasks.clean]
 dependencies = ["rm-contracts"]
 command = "cargo"
 args = [ "clean" ]
 
 [tasks.rm-contracts]
-script = "rm -rf res/${FWD_WASM_FILE} res/${FEES_WASM_FILE}"
+script = "rm -rf res/${FWD_WASM_FILE} res/${FEES_WASM_FILE} res/${FWD_FACTORY_WASM_FILE}"
 
 [tasks.contract-stats]
 category = "Tools"
@@ -66,10 +92,12 @@ script = '''
 echo "Environment:"
 echo "    CARGO_MAKE_PROFILE:   ${CARGO_MAKE_PROFILE}"
 echo "    CARGO_FEATURES:       ${CARGO_FEATURES}"
-echo "    FWD_WASM_FILE:        ${FWD_WASM_FILE}"
-echo "    FWD_SIZE_WASM_FILE:   $(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')"
-echo "    FEES_WASM_FILE:       ${FEES_WASM_FILE}"
-echo "    FEES_SIZE_WASM_FILE:  $(wc -c res/${FEES_WASM_FILE} | awk '{print $1}')"
+echo "    FWD_FILE:             ${FWD_WASM_FILE}"
+echo "    FWD_SIZE_FILE:        $(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')"
+echo "    FACTORY_FILE:         ${FWD_FACTORY_WASM_FILE}"
+echo "    FACTORY_SIZE_FILE:    $(wc -c res/${FWD_FACTORY_WASM_FILE} | awk '{print $1}')"
+echo "    FEES_FILE:            ${FEES_WASM_FILE}"
+echo "    FEES_SIZE_FILE:       $(wc -c res/${FEES_WASM_FILE} | awk '{print $1}')"
 echo "    TARGET_DIR:           ${TARGET_DIR}"
 echo "    RUSTFLAGS:            ${RUSTFLAGS}"
 echo "    Extra build args:     ${RELEASE} ${@}"
