@@ -6,17 +6,18 @@ use std::str::FromStr;
 const STORAGE_DEPOSIT: NearToken = NearToken::from_yoctonear(2_350_000_000_000_000_000_000);
 
 pub trait FungibleToken {
-    async fn ft_balance_of(&self, account: &Account) -> u128;
-    async fn ft_transfer(&self, from: &Account, to: &Account, amount: u128) -> anyhow::Result<()>;
+    async fn ft_balance_of(&self, account_id: &AccountId) -> u128;
+    async fn ft_transfer(&self, from: &Account, to: &AccountId, amount: u128)
+        -> anyhow::Result<()>;
     async fn storage_deposit(&self, account_id: &AccountId) -> anyhow::Result<()>;
 }
 
 impl FungibleToken for Contract {
-    async fn ft_balance_of(&self, account: &Account) -> u128 {
+    async fn ft_balance_of(&self, account_id: &AccountId) -> u128 {
         let result = self
             .view("ft_balance_of")
             .args_json(json!({
-                "account_id": account.id()
+                "account_id": account_id
             }))
             .await
             .unwrap();
@@ -24,10 +25,15 @@ impl FungibleToken for Contract {
         u128::from_str(&value).unwrap()
     }
 
-    async fn ft_transfer(&self, from: &Account, to: &Account, amount: u128) -> anyhow::Result<()> {
+    async fn ft_transfer(
+        &self,
+        from: &Account,
+        to: &AccountId,
+        amount: u128,
+    ) -> anyhow::Result<()> {
         let result = from
             .call(self.id(), "ft_transfer")
-            .args_json(json!({ "receiver_id": to.id(), "amount": amount.to_string() }))
+            .args_json(json!({ "receiver_id": to, "amount": amount.to_string() }))
             .deposit(NearToken::from_yoctonear(1))
             .max_gas()
             .transact()
