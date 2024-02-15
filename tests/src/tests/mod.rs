@@ -1,6 +1,4 @@
-use crate::sandbox::{
-    aurora::Aurora, factory::Factory, forwarder::Forwarder, fungible_token::FungibleToken, Sandbox,
-};
+use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
 use aurora_forwarder_factory::DeployParameters;
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
@@ -14,7 +12,7 @@ const MAX_NUM_CONTRACTS: u8 = 10;
 async fn test_creating_ft() {
     let sandbox = Sandbox::new().await.unwrap();
     let (ft, ft_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
-    let owner_balance = ft.ft_balance_of(&ft_owner).await;
+    let owner_balance = ft.ft_balance_of(ft_owner.id()).await;
     assert_eq!(owner_balance, TOTAL_SUPPLY);
     let balance = NearToken::from_near(10);
     let alice = sandbox.create_subaccount("alice", balance).await.unwrap();
@@ -24,21 +22,21 @@ async fn test_creating_ft() {
     );
     ft.storage_deposit(alice.id()).await.unwrap();
 
-    let alice_balance = ft.ft_balance_of(&alice).await;
+    let alice_balance = ft.ft_balance_of(alice.id()).await;
     assert_eq!(alice_balance, 0);
 
-    let transfer_result = ft.ft_transfer(&ft_owner, &alice, 50).await;
+    let transfer_result = ft.ft_transfer(&ft_owner, alice.id(), 50).await;
     assert!(transfer_result.is_ok());
 
-    let alice_balance = ft.ft_balance_of(&alice).await;
+    let alice_balance = ft.ft_balance_of(alice.id()).await;
     assert_eq!(alice_balance, 50);
 }
 
 #[tokio::test]
 async fn test_creating_forwarder() {
     let sandbox = Sandbox::new().await.unwrap();
-    let aurora = sandbox.deploy_aurora().await.unwrap();
-    let fees = sandbox.deploy_fee(vec![]).await.unwrap();
+    let aurora = sandbox.deploy_aurora("aurora").await.unwrap();
+    let fees = sandbox.deploy_fees(&[]).await.unwrap();
     let result = sandbox
         .deploy_forwarder(
             aurora.id(),
@@ -53,7 +51,7 @@ async fn test_creating_forwarder() {
 async fn test_creating_erc20() {
     let sandbox = Sandbox::new().await.unwrap();
     let (ft, _) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDC", 6).await.unwrap();
-    let aurora = sandbox.deploy_aurora().await.unwrap();
+    let aurora = sandbox.deploy_aurora("aurora").await.unwrap();
     let erc20 = aurora.deploy_erc20(ft.id()).await.unwrap();
     assert_eq!(
         erc20.address(),
@@ -63,18 +61,20 @@ async fn test_creating_erc20() {
 
 #[tokio::test]
 async fn test_main_successful_flow() {
+    use crate::sandbox::forwarder::Forwarder;
+
     let forward_amount = 1_000_000_000;
     let fee_percent = 5;
     let sandbox = Sandbox::new().await.unwrap();
     let (ft, ft_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
 
-    let aurora = sandbox.deploy_aurora().await.unwrap();
+    let aurora = sandbox.deploy_aurora("aurora").await.unwrap();
     ft.storage_deposit(aurora.id()).await.unwrap();
 
     let erc20 = aurora.deploy_erc20(ft.id()).await.unwrap();
     assert_eq!(erc20.balance_of(RECEIVER).await, 0);
 
-    let fees = sandbox.deploy_fee(vec![ft.id().clone()]).await.unwrap();
+    let fees = sandbox.deploy_fees(&[ft.id()]).await.unwrap();
     ft.storage_deposit(fees.id()).await.unwrap();
 
     let forwarder = sandbox
@@ -83,15 +83,12 @@ async fn test_main_successful_flow() {
         .unwrap();
     ft.storage_deposit(forwarder.id()).await.unwrap();
 
-    ft.ft_transfer(&ft_owner, forwarder.as_account(), forward_amount)
+    ft.ft_transfer(&ft_owner, forwarder.id(), forward_amount)
         .await
         .unwrap();
 
-    assert_eq!(
-        ft.ft_balance_of(forwarder.as_account()).await,
-        forward_amount
-    );
-    assert_eq!(ft.ft_balance_of(aurora.as_account()).await, 0);
+    assert_eq!(ft.ft_balance_of(forwarder.id()).await, forward_amount);
+    assert_eq!(ft.ft_balance_of(aurora.id()).await, 0);
 
     forwarder.forward(ft.id()).await.unwrap();
 
@@ -99,11 +96,11 @@ async fn test_main_successful_flow() {
     let balance = forward_amount - fee;
 
     assert_eq!(erc20.balance_of(RECEIVER).await, balance);
-    assert_eq!(ft.ft_balance_of(aurora.as_account()).await, balance);
-    assert_eq!(ft.ft_balance_of(fees.as_account()).await, fee);
-    assert_eq!(ft.ft_balance_of(forwarder.as_account()).await, 0);
+    assert_eq!(ft.ft_balance_of(aurora.id()).await, balance);
+    assert_eq!(ft.ft_balance_of(fees.id()).await, fee);
+    assert_eq!(ft.ft_balance_of(forwarder.id()).await, 0);
     assert_eq!(
-        ft.ft_balance_of(&ft_owner).await,
+        ft.ft_balance_of(ft_owner.id()).await,
         TOTAL_SUPPLY - forward_amount
     );
 }
@@ -111,13 +108,15 @@ async fn test_main_successful_flow() {
 #[allow(clippy::similar_names)]
 #[tokio::test]
 async fn test_forward_two_tokens() {
+    use crate::sandbox::factory::Factory;
+
     let forward_amount = 1_000_000_000;
     let fee_percent = 5;
     let sandbox = Sandbox::new().await.unwrap();
     let (usdt, usdt_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
     let (usdc, usdc_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDC", 6).await.unwrap();
 
-    let aurora = sandbox.deploy_aurora().await.unwrap();
+    let aurora = sandbox.deploy_aurora("aurora").await.unwrap();
     usdt.storage_deposit(aurora.id()).await.unwrap();
     usdc.storage_deposit(aurora.id()).await.unwrap();
 
@@ -126,60 +125,57 @@ async fn test_forward_two_tokens() {
     assert_eq!(usdt_erc20.balance_of(RECEIVER).await, 0);
     assert_eq!(usdc_erc20.balance_of(RECEIVER).await, 0);
 
-    let fees = sandbox
-        .deploy_fee(vec![usdt.id().clone(), usdc.id().clone()])
-        .await
-        .unwrap();
+    let fees = sandbox.deploy_fees(&[usdt.id(), usdc.id()]).await.unwrap();
     usdt.storage_deposit(fees.id()).await.unwrap();
     usdc.storage_deposit(fees.id()).await.unwrap();
 
-    let forwarder = sandbox
-        .deploy_forwarder(aurora.id(), RECEIVER, fees.id())
+    let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
+    let mut ids = factory
+        .create(&[DeployParameters {
+            target_address: RECEIVER.to_string(),
+            target_network: aurora.id().as_str().parse().unwrap(),
+        }])
         .await
         .unwrap();
-    usdt.storage_deposit(forwarder.id()).await.unwrap();
-    usdc.storage_deposit(forwarder.id()).await.unwrap();
+    let forwarder_id = ids.pop().unwrap();
 
-    usdt.ft_transfer(&usdt_owner, forwarder.as_account(), forward_amount)
+    usdt.storage_deposit(&forwarder_id).await.unwrap();
+    usdc.storage_deposit(&forwarder_id).await.unwrap();
+
+    usdt.ft_transfer(&usdt_owner, &forwarder_id, forward_amount)
         .await
         .unwrap();
-    usdc.ft_transfer(&usdc_owner, forwarder.as_account(), forward_amount)
+    usdc.ft_transfer(&usdc_owner, &forwarder_id, forward_amount)
         .await
         .unwrap();
 
-    assert_eq!(
-        usdt.ft_balance_of(forwarder.as_account()).await,
-        forward_amount
-    );
-    assert_eq!(
-        usdc.ft_balance_of(forwarder.as_account()).await,
-        forward_amount
-    );
-    assert_eq!(usdt.ft_balance_of(aurora.as_account()).await, 0);
-    assert_eq!(usdc.ft_balance_of(aurora.as_account()).await, 0);
+    assert_eq!(usdt.ft_balance_of(&forwarder_id).await, forward_amount);
+    assert_eq!(usdc.ft_balance_of(&forwarder_id).await, forward_amount);
+    assert_eq!(usdt.ft_balance_of(aurora.id()).await, 0);
+    assert_eq!(usdc.ft_balance_of(aurora.id()).await, 0);
 
-    forwarder.forward(usdt.id()).await.unwrap();
-    forwarder.forward(usdc.id()).await.unwrap();
+    factory.forward(&forwarder_id, usdt.id()).await.unwrap();
+    factory.forward(&forwarder_id, usdc.id()).await.unwrap();
 
     let fee = (forward_amount * fee_percent) / 100;
     let balance = forward_amount - fee;
 
     // Check USDT
     assert_eq!(usdt_erc20.balance_of(RECEIVER).await, balance);
-    assert_eq!(usdt.ft_balance_of(aurora.as_account()).await, balance);
-    assert_eq!(usdt.ft_balance_of(fees.as_account()).await, fee);
-    assert_eq!(usdt.ft_balance_of(forwarder.as_account()).await, 0);
+    assert_eq!(usdt.ft_balance_of(aurora.id()).await, balance);
+    assert_eq!(usdt.ft_balance_of(fees.id()).await, fee);
+    assert_eq!(usdt.ft_balance_of(&forwarder_id).await, 0);
     assert_eq!(
-        usdt.ft_balance_of(&usdt_owner).await,
+        usdt.ft_balance_of(usdt_owner.id()).await,
         TOTAL_SUPPLY - forward_amount
     );
     // Check USDC
     assert_eq!(usdc_erc20.balance_of(RECEIVER).await, balance);
-    assert_eq!(usdc.ft_balance_of(aurora.as_account()).await, balance);
-    assert_eq!(usdc.ft_balance_of(fees.as_account()).await, fee);
-    assert_eq!(usdc.ft_balance_of(forwarder.as_account()).await, 0);
+    assert_eq!(usdc.ft_balance_of(aurora.id()).await, balance);
+    assert_eq!(usdc.ft_balance_of(fees.id()).await, fee);
+    assert_eq!(usdc.ft_balance_of(&forwarder_id).await, 0);
     assert_eq!(
-        usdc.ft_balance_of(&usdc_owner).await,
+        usdc.ft_balance_of(usdc_owner.id()).await,
         TOTAL_SUPPLY - forward_amount
     );
 }
@@ -200,20 +196,145 @@ async fn test_using_full_access_key() {
 
 #[tokio::test]
 async fn test_using_factory() {
+    use crate::sandbox::factory::Factory;
+
     let sandbox = Sandbox::new().await.unwrap();
-    let fees = sandbox.deploy_fee(vec![]).await.unwrap();
+    let fees = sandbox.deploy_fees(&[]).await.unwrap();
     let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
-    let forwarder_ids = (0..MAX_NUM_CONTRACTS)
+    let parameters = (0..MAX_NUM_CONTRACTS)
         .map(|i| DeployParameters {
             target_address: Address::from_array([i; 20]).encode(),
             target_network: format!("silo-{i}.test.near").parse().unwrap(),
         })
         .collect::<Vec<_>>();
-    let forwarder_ids = factory.create(forwarder_ids).await.unwrap();
+    let forwarder_ids = factory.create(&parameters).await.unwrap();
+    let factory_id = factory.id();
+    let fees_id = fees.id();
 
     assert_eq!(forwarder_ids.len(), 10);
 
-    for id in forwarder_ids {
-        assert!(sandbox.balance(&id).await > NearToken::from_millinear(1800).as_yoctonear());
+    for (id, params) in forwarder_ids.iter().zip(parameters) {
+        assert!(sandbox.balance(id).await > NearToken::from_millinear(1800).as_yoctonear());
+
+        let expected_id = format!(
+            "{}.{factory_id}",
+            forwarder_utils::forwarder_prefix(
+                &params.target_address,
+                &params.target_network,
+                &fees_id.as_str().parse().unwrap()
+            )
+        );
+
+        assert_eq!(id.as_str(), expected_id);
     }
+}
+
+#[tokio::test]
+#[allow(clippy::similar_names)]
+async fn test_successful_complicated_flow() {
+    use crate::sandbox::factory::Factory;
+    let sandbox = Sandbox::new().await.unwrap();
+
+    let alice_address = "0x41e60a647bc61097ed52f15855fcf24a9dacdbe4";
+    let bob_address = "0xbf85c24ca42c553dbabc3ec944142e290fc3c82b";
+    let john_address = "0x78aea1a9f9880b0cda3bc0b96251948be4f340ca";
+
+    let (usdt, usdt_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDT", 6).await.unwrap();
+    let (usdc, usdc_owner) = sandbox.deploy_ft(TOTAL_SUPPLY, "USDC", 6).await.unwrap();
+
+    let silo1 = sandbox.deploy_aurora("silo-1").await.unwrap();
+    let silo2 = sandbox.deploy_aurora("silo-2").await.unwrap();
+    let silo3 = sandbox.deploy_aurora("silo-3").await.unwrap();
+
+    usdt.storage_deposit(silo1.id()).await.unwrap();
+    usdc.storage_deposit(silo1.id()).await.unwrap();
+    usdt.storage_deposit(silo2.id()).await.unwrap();
+    usdc.storage_deposit(silo2.id()).await.unwrap();
+    usdt.storage_deposit(silo3.id()).await.unwrap();
+    usdc.storage_deposit(silo3.id()).await.unwrap();
+
+    let usdt_erc20_s1 = silo1.deploy_erc20(usdt.id()).await.unwrap();
+    let usdc_erc20_s1 = silo1.deploy_erc20(usdc.id()).await.unwrap();
+    let usdt_erc20_s2 = silo2.deploy_erc20(usdt.id()).await.unwrap();
+    let usdc_erc20_s2 = silo2.deploy_erc20(usdc.id()).await.unwrap();
+    let usdt_erc20_s3 = silo3.deploy_erc20(usdt.id()).await.unwrap();
+    let usdc_erc20_s3 = silo3.deploy_erc20(usdc.id()).await.unwrap();
+
+    let fees = sandbox.deploy_fees(&[usdt.id(), usdc.id()]).await.unwrap();
+
+    usdt.storage_deposit(fees.id()).await.unwrap();
+    usdc.storage_deposit(fees.id()).await.unwrap();
+
+    let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
+
+    let parameters = [
+        DeployParameters {
+            target_address: alice_address.to_string(),
+            target_network: silo1.id().as_str().parse().unwrap(),
+        },
+        DeployParameters {
+            target_address: bob_address.to_string(),
+            target_network: silo2.id().as_str().parse().unwrap(),
+        },
+        DeployParameters {
+            target_address: john_address.to_string(),
+            target_network: silo3.id().as_str().parse().unwrap(),
+        },
+    ];
+    let forward_ids: [_; 3] = factory
+        .create(&parameters)
+        .await
+        .unwrap()
+        .try_into()
+        .unwrap();
+
+    for fwd_id in &forward_ids {
+        usdt.storage_deposit(fwd_id).await.unwrap();
+        usdc.storage_deposit(fwd_id).await.unwrap();
+    }
+
+    let [alice_fwd, bob_fwd, john_fwd] = &forward_ids;
+
+    usdt.ft_transfer(&usdt_owner, alice_fwd, 8_000_000)
+        .await
+        .unwrap();
+    usdt.ft_transfer(&usdt_owner, bob_fwd, 6_000_000)
+        .await
+        .unwrap();
+    usdt.ft_transfer(&usdt_owner, john_fwd, 4_000_000)
+        .await
+        .unwrap();
+    usdc.ft_transfer(&usdc_owner, alice_fwd, 4_000_000)
+        .await
+        .unwrap();
+    usdc.ft_transfer(&usdc_owner, bob_fwd, 6_000_000)
+        .await
+        .unwrap();
+    usdc.ft_transfer(&usdc_owner, john_fwd, 8_000_000)
+        .await
+        .unwrap();
+
+    for fwd_id in &forward_ids {
+        factory.forward(fwd_id, usdt.id()).await.unwrap();
+        factory.forward(fwd_id, usdc.id()).await.unwrap();
+    }
+
+    assert_eq!(usdt_erc20_s1.balance_of(alice_address).await, 7_600_000);
+    assert_eq!(usdt_erc20_s2.balance_of(bob_address).await, 5_700_000);
+    assert_eq!(usdt_erc20_s3.balance_of(john_address).await, 3_800_000);
+
+    assert_eq!(usdc_erc20_s1.balance_of(alice_address).await, 3_800_000);
+    assert_eq!(usdc_erc20_s2.balance_of(bob_address).await, 5_700_000);
+    assert_eq!(usdc_erc20_s3.balance_of(john_address).await, 7_600_000);
+
+    assert_eq!(usdt.ft_balance_of(fees.id()).await, 900_000);
+    assert_eq!(usdc.ft_balance_of(fees.id()).await, 900_000);
+
+    assert_eq!(usdt.ft_balance_of(silo1.id()).await, 7_600_000);
+    assert_eq!(usdt.ft_balance_of(silo2.id()).await, 5_700_000);
+    assert_eq!(usdt.ft_balance_of(silo3.id()).await, 3_800_000);
+
+    assert_eq!(usdc.ft_balance_of(silo1.id()).await, 3_800_000);
+    assert_eq!(usdc.ft_balance_of(silo2.id()).await, 5_700_000);
+    assert_eq!(usdc.ft_balance_of(silo3.id()).await, 7_600_000);
 }

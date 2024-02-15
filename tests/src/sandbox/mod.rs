@@ -94,8 +94,8 @@ impl Sandbox {
         Ok((contract, ft_owner_account))
     }
 
-    pub async fn deploy_aurora(&self) -> anyhow::Result<Contract> {
-        let aurora_account = self.create_subaccount("aurora", INIT_BALANCE_NEAR).await?;
+    pub async fn deploy_aurora(&self, name: &str) -> anyhow::Result<Contract> {
+        let aurora_account = self.create_subaccount(name, INIT_BALANCE_NEAR).await?;
         let result = aurora_account.deploy(&code(AURORA_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
@@ -141,14 +141,12 @@ impl Sandbox {
             .max_gas()
             .transact()
             .await?;
-        dbg!(&result);
-        println!("balance: {}", self.balance(fwd_account.id()).await);
         assert!(result.is_success());
 
         Ok(contract)
     }
 
-    pub async fn deploy_fee(&self, supported_tokens: Vec<AccountId>) -> anyhow::Result<Contract> {
+    pub async fn deploy_fees(&self, supported_tokens: &[&AccountId]) -> anyhow::Result<Contract> {
         let fee_account = self.create_subaccount("fees", INIT_BALANCE_NEAR).await?;
         let result = fee_account.deploy(&code(FEES_WASM_PATH)).await?;
         assert!(result.is_success());

@@ -18,3 +18,15 @@ pub fn forwarder_prefix(
         .into_string()
         .to_lowercase()
 }
+
+#[test]
+fn test_creating_forward_prefix() {
+    let address = "79271e4c45303443315323e69278ad59502baca1";
+    let target_network = "aurora".parse().unwrap();
+    let fee_contract = "some-account-id.near".parse().unwrap();
+
+    assert_eq!(
+        forwarder_prefix(address, &target_network, &fee_contract),
+        "cgkjwrjmzubezxgnpkrmurjrfuj31rqn38gqjhfklqsv"
+    )
+}
