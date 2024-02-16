@@ -55,7 +55,8 @@ impl AuroraForwarderFactory {
                 let args = near_sdk::serde_json::to_vec(&json!({
                     "target_address": params.target_address,
                     "target_network": params.target_network,
-                    "fees_contract_id": &self.fees_contract_id
+                    "fees_contract_id": &self.fees_contract_id,
+                    "wnear_contract_id": params.wnear_contract_id,
                 }))
                 .expect("Couldn't create args");
                 let _ = Promise::new(forwarder_id.clone())
@@ -87,6 +88,7 @@ impl AuroraForwarderFactory {
 pub struct DeployParameters {
     pub target_address: String,
     pub target_network: AccountId,
+    pub wnear_contract_id: AccountId,
 }
 
 fn create_forwarder_id(

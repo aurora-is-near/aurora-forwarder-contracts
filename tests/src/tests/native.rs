@@ -23,6 +23,7 @@ async fn test_forward_native_tokens() {
         .create(&[DeployParameters {
             target_address: super::RECEIVER.to_string(),
             target_network: silo.id().as_str().parse().unwrap(),
+            wnear_contract_id: wrap.id().as_str().parse().unwrap(),
         }])
         .await
         .unwrap()

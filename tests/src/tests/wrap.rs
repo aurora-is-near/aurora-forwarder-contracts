@@ -16,7 +16,7 @@ async fn test_forward_wrap_near_tokens() {
     let silo = sandbox.deploy_aurora("silo").await.unwrap();
     let erc20 = silo.deploy_erc20(wrap.id()).await.unwrap();
     let forwarder = sandbox
-        .deploy_forwarder(silo.id(), super::RECEIVER, fees.id())
+        .deploy_forwarder(silo.id(), super::RECEIVER, fees.id(), wrap.id())
         .await
         .unwrap();
 

@@ -21,10 +21,6 @@ const FINISH_FORWARD_GAS: Gas = Gas(30_000_000_000_000);
 const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
 // In case we get near as a token id it means we need to transfer native NEAR tokens.
 const NEAR: &str = "near";
-#[cfg(not(feature = "test"))]
-const WRAP_NEAR: &str = "wrap.near";
-#[cfg(feature = "test")]
-const WRAP_NEAR: &str = "wrap.test.near";
 
 #[near_bindgen]
 #[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -32,6 +28,7 @@ pub struct AuroraForwarder {
     target_address: String,
     target_network: AccountId,
     fees_contract_id: AccountId,
+    wnear_contract_id: AccountId,
     owner: AccountId,
 }
 
@@ -44,6 +41,7 @@ impl AuroraForwarder {
         target_address: String,
         target_network: AccountId,
         fees_contract_id: AccountId,
+        wnear_contract_id: AccountId,
     ) -> Self {
         let current_account_id = env::current_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
@@ -66,6 +64,7 @@ impl AuroraForwarder {
             target_address,
             target_network,
             fees_contract_id,
+            wnear_contract_id,
             owner,
         }
     }
@@ -76,7 +75,7 @@ impl AuroraForwarder {
         assert_one_yocto();
 
         if token_id.as_str() == NEAR {
-            Self::forward_native_token()
+            Self::forward_native_token(&self.wnear_contract_id)
         } else {
             Self::forward_nep141_token(token_id)
         }
@@ -174,15 +173,14 @@ impl AuroraForwarder {
             )
     }
 
-    fn forward_native_token() -> Promise {
-        let token_id: AccountId = WRAP_NEAR.parse().unwrap();
+    fn forward_native_token(wnear_contract_id: &AccountId) -> Promise {
         Self::ext(env::current_account_id())
-            .deposit_wrap_near(&token_id)
+            .deposit_wrap_near(wnear_contract_id)
             .then(
                 Self::ext(env::current_account_id())
                     .with_attached_deposit(env::attached_deposit())
                     .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
-                    .calculate_fees_callback(&token_id),
+                    .calculate_fees_callback(wnear_contract_id),
             )
     }
 }

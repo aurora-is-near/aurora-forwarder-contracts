@@ -22,6 +22,7 @@ forwarder-utils = {  path = "../utils" }
 anyhow.workspace = true
 aurora-engine-types.workspace = true
 ethabi.workspace = true
+lazy_static.workspace = true
 near-sdk.workspace = true
 near-workspaces.workspace = true
 tokio.workspace = true

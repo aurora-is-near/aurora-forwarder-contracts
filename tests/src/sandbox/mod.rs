@@ -145,6 +145,7 @@ impl Sandbox {
         target_network: &AccountId,
         address: &str,
         fees_account_id: &AccountId,
+        wnear_contract_id: &AccountId,
     ) -> anyhow::Result<Contract> {
         let name = forwarder_prefix(
             address,
@@ -160,7 +161,8 @@ impl Sandbox {
             .args_json(json!({
                 "target_address": address,
                 "target_network": target_network,
-                "fees_contract_id": fees_account_id
+                "fees_contract_id": fees_account_id,
+                "wnear_contract_id": wnear_contract_id,
             }))
             .max_gas()
             .transact()

@@ -20,6 +20,3 @@ as_conversions = "deny"
 [dependencies]
 forwarder-utils = {path = "../utils" }
 near-sdk.workspace = true
-
-[features]
-test = []
