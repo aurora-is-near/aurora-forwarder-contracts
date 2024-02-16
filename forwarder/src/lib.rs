@@ -2,22 +2,29 @@ use forwarder_utils::forwarder_prefix;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Gas, PanicOnDefault,
-    Promise, PromiseOrValue, PublicKey,
+    assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Balance, Gas,
+    PanicOnDefault, Promise, PromiseOrValue, PublicKey,
 };
 use std::str::FromStr;
 
+const MINIMUM_BALANCE: Balance = 1_800_000_000_000_000_000_000_000;
 const MAX_FEE_PERCENT: u128 = 10;
 
-const FT_BALANCE_GAS: Gas = Gas(3_000_000_000_000);
 const CALCULATE_FEES_GAS: Gas = Gas(5_000_000_000_000);
-const FT_TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
+const NEAR_DEPOSIT_GAS: Gas = Gas(5_000_000_000_000);
+const FT_TRANSFER_GAS: Gas = Gas(5_000_000_000_000);
 const FT_TRANSFER_CALL_GAS: Gas = Gas(30_000_000_000_000);
 const CALCULATE_FEES_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
 const FINISH_FORWARD_GAS: Gas = Gas(30_000_000_000_000);
 
 // Key is used for upgrading the smart contract.
 const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
+// In case we get near as a token id it means we need to transfer native NEAR tokens.
+const NEAR: &str = "near";
+#[cfg(not(feature = "test"))]
+const WRAP_NEAR: &str = "wrap.near";
+#[cfg(feature = "test")]
+const WRAP_NEAR: &str = "wrap.test.near";
 
 #[near_bindgen]
 #[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -63,19 +70,16 @@ impl AuroraForwarder {
         }
     }
 
+    /// Main entry point of the contract. Initiate forwarding tokens.
     #[payable]
     pub fn forward(&mut self, token_id: &AccountId) -> Promise {
         assert_one_yocto();
 
-        ext_token::ext(token_id.clone())
-            .with_static_gas(FT_BALANCE_GAS)
-            .ft_balance_of(env::current_account_id())
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_attached_deposit(env::attached_deposit())
-                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
-                    .calculate_fees_callback(token_id),
-            )
+        if token_id.as_str() == NEAR {
+            self.forward_native_token()
+        } else {
+            self.forward_nep141_token(token_id)
+        }
     }
 
     #[payable]
@@ -137,6 +141,44 @@ impl AuroraForwarder {
             ft_transfer_call
         }
     }
+
+    pub fn deposit_wrap_near(&self, token_id: &AccountId) -> U128 {
+        assert_self();
+        let amount = env::account_balance()
+            .checked_sub(MINIMUM_BALANCE)
+            .filter(|a| *a > 0)
+            .expect("Too low balance");
+
+        ext_wnear::ext(token_id.clone())
+            .with_attached_deposit(amount)
+            .with_static_gas(NEAR_DEPOSIT_GAS)
+            .near_deposit();
+
+        amount.into()
+    }
+
+    fn forward_nep141_token(&self, token_id: &AccountId) -> Promise {
+        ext_token::ext(token_id.clone())
+            .ft_balance_of(env::current_account_id())
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_attached_deposit(env::attached_deposit())
+                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
+                    .calculate_fees_callback(token_id),
+            )
+    }
+
+    fn forward_native_token(&self) -> Promise {
+        let token_id: AccountId = WRAP_NEAR.parse().unwrap();
+        Self::ext(env::current_account_id())
+            .deposit_wrap_near(&token_id)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_attached_deposit(env::attached_deposit())
+                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
+                    .calculate_fees_callback(&token_id),
+            )
+    }
 }
 
 #[ext_contract(ext_token)]
@@ -163,6 +205,11 @@ pub trait ExtFeesCalculator {
         target_network: &AccountId,
         target_address: &str,
     ) -> U128;
+}
+
+#[ext_contract(ext_wnear)]
+pub trait ExtWnear {
+    fn near_deposit(&self);
 }
 
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.

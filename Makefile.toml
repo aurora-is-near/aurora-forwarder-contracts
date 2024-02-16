@@ -17,6 +17,15 @@ dependencies = [
     "contract-stats"
 ]
 
+[tasks.build-test]
+dependencies = [
+    "build-test-contracts",
+    "cp-contracts",
+    "build-factory",
+    "cp-factory",
+    "contract-stats"
+]
+
 [tasks.clippy]
 command = "cargo"
 dependencies = [
@@ -33,7 +42,7 @@ args = [
 [tasks.tests]
 command = "cargo"
 dependencies = [
-    "build"
+    "build-test"
 ]
 args = [
     "test",
@@ -49,6 +58,23 @@ args = [
     "${TARGET}",
     "--release",
     "--workspace",
+    "--exclude",
+    "aurora-forwarder-tests",
+    "--exclude",
+    "aurora-forwarder-factory"
+]
+
+[tasks.build-test-contracts]
+command = "cargo"
+env = { "RUSTFLAGS" = "-C link-arg=-s" }
+args = [
+    "build",
+    "--target",
+    "${TARGET}",
+    "--release",
+    "--workspace",
+    "--features",
+    "test",
     "--exclude",
     "aurora-forwarder-tests",
     "--exclude",

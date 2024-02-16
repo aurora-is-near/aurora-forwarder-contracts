@@ -4,6 +4,9 @@ use aurora_forwarder_factory::DeployParameters;
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use std::str::FromStr;
 
+mod native;
+mod wrap;
+
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 const MAX_NUM_CONTRACTS: u8 = 10;
