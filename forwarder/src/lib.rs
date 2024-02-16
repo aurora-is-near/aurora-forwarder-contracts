@@ -76,9 +76,9 @@ impl AuroraForwarder {
         assert_one_yocto();
 
         if token_id.as_str() == NEAR {
-            self.forward_native_token()
+            Self::forward_native_token()
         } else {
-            self.forward_nep141_token(token_id)
+            Self::forward_nep141_token(token_id)
         }
     }
 
@@ -142,6 +142,12 @@ impl AuroraForwarder {
         }
     }
 
+    /// Callback for depositing wNEAR.
+    ///
+    /// # Panics
+    ///
+    /// The callback panics if the use has a low balance.
+    #[must_use]
     pub fn deposit_wrap_near(&self, token_id: &AccountId) -> U128 {
         assert_self();
         let amount = env::account_balance()
@@ -157,7 +163,7 @@ impl AuroraForwarder {
         amount.into()
     }
 
-    fn forward_nep141_token(&self, token_id: &AccountId) -> Promise {
+    fn forward_nep141_token(token_id: &AccountId) -> Promise {
         ext_token::ext(token_id.clone())
             .ft_balance_of(env::current_account_id())
             .then(
@@ -168,7 +174,7 @@ impl AuroraForwarder {
             )
     }
 
-    fn forward_native_token(&self) -> Promise {
+    fn forward_native_token() -> Promise {
         let token_id: AccountId = WRAP_NEAR.parse().unwrap();
         Self::ext(env::current_account_id())
             .deposit_wrap_near(&token_id)
