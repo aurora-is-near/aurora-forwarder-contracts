@@ -1,9 +1,9 @@
 use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
 use aurora_forwarder_factory::DeployParameters;
-use lazy_static::lazy_static;
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use near_workspaces::AccountId;
+use once_cell::sync::Lazy;
 use std::str::FromStr;
 
 mod native;
@@ -13,9 +13,7 @@ const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 const MAX_NUM_CONTRACTS: u8 = 10;
 
-lazy_static! {
-    static ref WNEAR: AccountId = "wnear.test.near".parse().unwrap();
-}
+static WNEAR: Lazy<AccountId> = Lazy::new(|| "wnear.test.near".parse().unwrap());
 
 #[tokio::test]
 async fn test_creating_ft() {

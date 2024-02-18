@@ -298,9 +298,9 @@ dependencies = [
  "aurora-forwarder-factory",
  "ethabi",
  "forwarder-utils",
- "lazy_static",
  "near-sdk",
  "near-workspaces",
+ "once_cell",
  "tokio",
 ]
 
