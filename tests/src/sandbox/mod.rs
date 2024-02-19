@@ -14,6 +14,7 @@ const FT_WASM_PATH: &str = "../res/fungible-token.wasm";
 const FORWARDER_WASM_PATH: &str = "../res/aurora-forwarder.wasm";
 const FEES_WASM_PATH: &str = "../res/aurora-forward-fees.wasm";
 const FACTORY_WASM_PATH: &str = "../res/aurora-forwarder-factory.wasm";
+const WRAP_WASM_PATH: &str = "../res/w_near.wasm";
 const INIT_BALANCE_NEAR: NearToken = NearToken::from_near(50);
 const FORWARDER_MIN_BALANCE: NearToken = NearToken::from_near(2);
 
@@ -94,6 +95,29 @@ impl Sandbox {
         Ok((contract, ft_owner_account))
     }
 
+    pub async fn deploy_wrap_near(&self) -> anyhow::Result<(Contract, Account)> {
+        let wrap_owner_account = self
+            .create_subaccount("wrap-owner", INIT_BALANCE_NEAR)
+            .await?;
+        let wrap_account = self.create_subaccount("wrap", INIT_BALANCE_NEAR).await?;
+        let result = wrap_account.deploy(&code(WRAP_WASM_PATH)).await?;
+        assert!(result.is_success());
+
+        let contract = result.result;
+        let result = contract.call("new").max_gas().transact().await?;
+        assert!(result.is_success(), "{result:?}");
+
+        let result = wrap_owner_account
+            .call(contract.id(), "near_deposit")
+            .deposit(NearToken::from_near(20))
+            .transact()
+            .await
+            .unwrap();
+        assert!(result.is_success(), "{result:?}");
+
+        Ok((contract, wrap_owner_account))
+    }
+
     pub async fn deploy_aurora(&self, name: &str) -> anyhow::Result<Contract> {
         let aurora_account = self.create_subaccount(name, INIT_BALANCE_NEAR).await?;
         let result = aurora_account.deploy(&code(AURORA_WASM_PATH)).await?;
@@ -121,6 +145,7 @@ impl Sandbox {
         target_network: &AccountId,
         address: &str,
         fees_account_id: &AccountId,
+        wnear_contract_id: &AccountId,
     ) -> anyhow::Result<Contract> {
         let name = forwarder_prefix(
             address,
@@ -136,7 +161,8 @@ impl Sandbox {
             .args_json(json!({
                 "target_address": address,
                 "target_network": target_network,
-                "fees_contract_id": fees_account_id
+                "fees_contract_id": fees_account_id,
+                "wnear_contract_id": wnear_contract_id,
             }))
             .max_gas()
             .transact()

@@ -2,11 +2,18 @@ use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
 use aurora_forwarder_factory::DeployParameters;
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
+use near_workspaces::AccountId;
+use once_cell::sync::Lazy;
 use std::str::FromStr;
+
+mod native;
+mod wrap;
 
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 const MAX_NUM_CONTRACTS: u8 = 10;
+
+static WNEAR: Lazy<AccountId> = Lazy::new(|| "wnear.test.near".parse().unwrap());
 
 #[tokio::test]
 async fn test_creating_ft() {
@@ -42,6 +49,7 @@ async fn test_creating_forwarder() {
             aurora.id(),
             "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057",
             fees.id(),
+            &WNEAR,
         )
         .await;
     assert!(result.is_ok());
@@ -78,7 +86,7 @@ async fn test_main_successful_flow() {
     ft.storage_deposit(fees.id()).await.unwrap();
 
     let forwarder = sandbox
-        .deploy_forwarder(aurora.id(), RECEIVER, fees.id())
+        .deploy_forwarder(aurora.id(), RECEIVER, fees.id(), &WNEAR)
         .await
         .unwrap();
     ft.storage_deposit(forwarder.id()).await.unwrap();
@@ -134,6 +142,7 @@ async fn test_forward_two_tokens() {
         .create(&[DeployParameters {
             target_address: RECEIVER.to_string(),
             target_network: aurora.id().as_str().parse().unwrap(),
+            wnear_contract_id: WNEAR.parse().unwrap(),
         }])
         .await
         .unwrap();
@@ -187,7 +196,7 @@ async fn test_using_full_access_key() {
     let silo_account_id = "some.silo.near".parse().unwrap();
     let fees_account_id = "fees.near".parse().unwrap();
     let forwarder = sandbox
-        .deploy_forwarder(&silo_account_id, RECEIVER, &fees_account_id)
+        .deploy_forwarder(&silo_account_id, RECEIVER, &fees_account_id, &WNEAR)
         .await
         .unwrap();
     let key = forwarder.view_access_key(&pk).await.unwrap();
@@ -205,6 +214,7 @@ async fn test_using_factory() {
         .map(|i| DeployParameters {
             target_address: Address::from_array([i; 20]).encode(),
             target_network: format!("silo-{i}.test.near").parse().unwrap(),
+            wnear_contract_id: WNEAR.as_str().parse().unwrap(),
         })
         .collect::<Vec<_>>();
     let forwarder_ids = factory.create(&parameters).await.unwrap();
@@ -267,18 +277,22 @@ async fn test_successful_complicated_flow() {
 
     let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
 
+    let wnear_contract_id: near_sdk::AccountId = WNEAR.parse().unwrap();
     let parameters = [
         DeployParameters {
             target_address: alice_address.to_string(),
             target_network: silo1.id().as_str().parse().unwrap(),
+            wnear_contract_id: wnear_contract_id.clone(),
         },
         DeployParameters {
             target_address: bob_address.to_string(),
             target_network: silo2.id().as_str().parse().unwrap(),
+            wnear_contract_id: wnear_contract_id.clone(),
         },
         DeployParameters {
             target_address: john_address.to_string(),
             target_network: silo3.id().as_str().parse().unwrap(),
+            wnear_contract_id,
         },
     ];
     let forward_ids: [_; 3] = factory

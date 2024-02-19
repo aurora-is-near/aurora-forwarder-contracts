@@ -2,22 +2,25 @@ use forwarder_utils::forwarder_prefix;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Gas, PanicOnDefault,
-    Promise, PromiseOrValue, PublicKey,
+    assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Balance, Gas,
+    PanicOnDefault, Promise, PromiseOrValue, PublicKey,
 };
 use std::str::FromStr;
 
+const MINIMUM_BALANCE: Balance = 1_800_000_000_000_000_000_000_000;
 const MAX_FEE_PERCENT: u128 = 10;
 
-const FT_BALANCE_GAS: Gas = Gas(3_000_000_000_000);
 const CALCULATE_FEES_GAS: Gas = Gas(5_000_000_000_000);
-const FT_TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
+const NEAR_DEPOSIT_GAS: Gas = Gas(5_000_000_000_000);
+const FT_TRANSFER_GAS: Gas = Gas(5_000_000_000_000);
 const FT_TRANSFER_CALL_GAS: Gas = Gas(30_000_000_000_000);
 const CALCULATE_FEES_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
 const FINISH_FORWARD_GAS: Gas = Gas(30_000_000_000_000);
 
 // Key is used for upgrading the smart contract.
 const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
+// In case we get near as a token id it means we need to transfer native NEAR tokens.
+const NEAR: &str = "near";
 
 #[near_bindgen]
 #[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -25,6 +28,7 @@ pub struct AuroraForwarder {
     target_address: String,
     target_network: AccountId,
     fees_contract_id: AccountId,
+    wnear_contract_id: AccountId,
     owner: AccountId,
 }
 
@@ -37,6 +41,7 @@ impl AuroraForwarder {
         target_address: String,
         target_network: AccountId,
         fees_contract_id: AccountId,
+        wnear_contract_id: AccountId,
     ) -> Self {
         let current_account_id = env::current_account_id();
         let target_address = target_address.trim_start_matches("0x").to_string();
@@ -59,23 +64,21 @@ impl AuroraForwarder {
             target_address,
             target_network,
             fees_contract_id,
+            wnear_contract_id,
             owner,
         }
     }
 
+    /// Main entry point of the contract. Initiate forwarding tokens.
     #[payable]
     pub fn forward(&mut self, token_id: &AccountId) -> Promise {
         assert_one_yocto();
 
-        ext_token::ext(token_id.clone())
-            .with_static_gas(FT_BALANCE_GAS)
-            .ft_balance_of(env::current_account_id())
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_attached_deposit(env::attached_deposit())
-                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
-                    .calculate_fees_callback(token_id),
-            )
+        if token_id.as_str() == NEAR {
+            self.forward_native_token()
+        } else {
+            Self::forward_nep141_token(token_id)
+        }
     }
 
     #[payable]
@@ -86,15 +89,14 @@ impl AuroraForwarder {
     ) -> Promise {
         assert_self();
 
-        ext_fees::ext(self.fees_contract_id.clone())
-            .with_static_gas(CALCULATE_FEES_GAS)
-            .calculate_fees(amount, token_id, &self.target_network, &self.target_address)
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_attached_deposit(2)
-                    .with_static_gas(FINISH_FORWARD_GAS)
-                    .finish_forward_callback(amount, token_id.clone()),
-            )
+        call_calculate_fees(
+            self.fees_contract_id.clone(),
+            amount,
+            token_id,
+            &self.target_network,
+            &self.target_address,
+        )
+        .then(call_finish_forward(amount, token_id.clone()))
     }
 
     /// Callback which finishes the forward flow.
@@ -137,6 +139,40 @@ impl AuroraForwarder {
             ft_transfer_call
         }
     }
+
+    fn forward_nep141_token(token_id: &AccountId) -> Promise {
+        ext_token::ext(token_id.clone())
+            .ft_balance_of(env::current_account_id())
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_attached_deposit(env::attached_deposit())
+                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
+                    .calculate_fees_callback(token_id),
+            )
+    }
+
+    fn forward_native_token(&self) -> Promise {
+        let amount = env::account_balance()
+            .checked_sub(MINIMUM_BALANCE)
+            .filter(|a| *a > 0)
+            .expect("Too low balance");
+
+        ext_wnear::ext(self.wnear_contract_id.clone())
+            .with_attached_deposit(amount)
+            .with_static_gas(NEAR_DEPOSIT_GAS)
+            .near_deposit()
+            .then(call_calculate_fees(
+                self.fees_contract_id.clone(),
+                amount.into(),
+                &self.wnear_contract_id,
+                &self.target_network,
+                &self.target_address,
+            ))
+            .then(call_finish_forward(
+                amount.into(),
+                self.wnear_contract_id.clone(),
+            ))
+    }
 }
 
 #[ext_contract(ext_token)]
@@ -163,6 +199,30 @@ pub trait ExtFeesCalculator {
         target_network: &AccountId,
         target_address: &str,
     ) -> U128;
+}
+
+#[ext_contract(ext_wnear)]
+pub trait ExtWnear {
+    fn near_deposit(&self);
+}
+
+fn call_calculate_fees(
+    fees_contract_id: AccountId,
+    amount: U128,
+    token_id: &AccountId,
+    target_network: &AccountId,
+    target_address: &str,
+) -> Promise {
+    ext_fees::ext(fees_contract_id)
+        .with_static_gas(CALCULATE_FEES_GAS)
+        .calculate_fees(amount, token_id, target_network, target_address)
+}
+
+fn call_finish_forward(amount: U128, token_id: AccountId) -> Promise {
+    AuroraForwarder::ext(env::current_account_id())
+        .with_attached_deposit(2)
+        .with_static_gas(FINISH_FORWARD_GAS)
+        .finish_forward_callback(amount, token_id)
 }
 
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.

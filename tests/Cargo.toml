@@ -24,4 +24,5 @@ aurora-engine-types.workspace = true
 ethabi.workspace = true
 near-sdk.workspace = true
 near-workspaces.workspace = true
+once_cell.workspace = true
 tokio.workspace = true

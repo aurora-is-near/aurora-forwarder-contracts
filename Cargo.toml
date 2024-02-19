@@ -24,6 +24,7 @@ aurora-engine-types = "1"
 ethabi = "18"
 near-sdk = "4.1"
 near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", tag = "v0.2.0" }
+once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 near-workspaces = "0.9"
 tokio = { version = "1", features = ["macros"] }

@@ -300,6 +300,7 @@ dependencies = [
  "forwarder-utils",
  "near-sdk",
  "near-workspaces",
+ "once_cell",
  "tokio",
 ]
 
