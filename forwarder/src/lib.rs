@@ -140,27 +140,6 @@ impl AuroraForwarder {
         }
     }
 
-    /// Callback for depositing wNEAR.
-    ///
-    /// # Panics
-    ///
-    /// The callback panics if the use has a low balance.
-    #[must_use]
-    pub fn deposit_wrap_near(&self, token_id: &AccountId) -> U128 {
-        assert_self();
-        let amount = env::account_balance()
-            .checked_sub(MINIMUM_BALANCE)
-            .filter(|a| *a > 0)
-            .expect("Too low balance");
-
-        ext_wnear::ext(token_id.clone())
-            .with_attached_deposit(amount)
-            .with_static_gas(NEAR_DEPOSIT_GAS)
-            .near_deposit();
-
-        amount.into()
-    }
-
     fn forward_nep141_token(token_id: &AccountId) -> Promise {
         ext_token::ext(token_id.clone())
             .ft_balance_of(env::current_account_id())
