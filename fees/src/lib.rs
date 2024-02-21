@@ -8,10 +8,8 @@ use std::num::ParseFloatError;
 use std::str::FromStr;
 
 // We multiply percents to 100 here to get rid of the floating numbers.
-const MIN_FEE_PERCENT: u64 = 1;
-// 0.01 %
-const MAX_FEE_PERCENT: u64 = 1000;
-// 10 %
+const MIN_FEE_PERCENT: u64 = 1; // 0.01 %
+const MAX_FEE_PERCENT: u64 = 1000; // 10 %
 const DEFAULT_PERCENT: U64 = U64(500); // 5%
 
 #[near_bindgen]
@@ -40,6 +38,10 @@ impl FeesCalculator {
     }
 
     /// Calculate and return the fee for the corresponding token and Aurora Network.
+    ///
+    /// # Panics
+    ///
+    /// There is a safe unwrap because we return 0 if the percent is None.
     #[must_use]
     pub fn calculate_fees(
         &self,
