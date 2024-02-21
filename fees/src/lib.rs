@@ -162,7 +162,7 @@ enum ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         #[allow(deprecated)]
-            let msg = match self {
+        let msg = match self {
             Self::ParseFloat(error) => error.description(),
             Self::TooLowPercent => "provided percent is less than 0.01%",
             Self::TooHighPercent => "provided percent is more than 10%",
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-    expected = "Couldn't parse percent: provided percent could contain only 2 decimals"
+        expected = "Couldn't parse percent: provided percent could contain only 2 decimals"
     )]
     fn test_set_percent_with_many_decimals() {
         let mut contract = FeesCalculator::new(vec![]);
