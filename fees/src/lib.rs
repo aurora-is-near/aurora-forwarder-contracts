@@ -15,7 +15,7 @@ const DEFAULT_PERCENT: U64 = U64(500); // 5%
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FeesCalculator {
-    percent: U64,
+    percent: Option<U64>,
     owner: AccountId,
     supported_tokens: BTreeSet<AccountId>,
 }
@@ -31,13 +31,17 @@ impl FeesCalculator {
     #[must_use]
     pub fn new(tokens: Vec<AccountId>) -> Self {
         Self {
-            percent: DEFAULT_PERCENT,
+            percent: Some(DEFAULT_PERCENT),
             owner: env::predecessor_account_id(),
             supported_tokens: tokens.into_iter().collect(),
         }
     }
 
     /// Calculate and return the fee for the corresponding token and Aurora Network.
+    ///
+    /// # Panics
+    ///
+    /// There is a safe unwrap because we return 0 if the percent is None.
     #[must_use]
     pub fn calculate_fees(
         &self,
@@ -48,14 +52,14 @@ impl FeesCalculator {
     ) -> U128 {
         let _ = (target_network, target_address);
 
-        if self.supported_tokens.contains(token_id) {
-            u128::from(self.percent.0)
+        if self.percent.is_none() || !self.supported_tokens.contains(token_id) {
+            0.into()
+        } else {
+            u128::from(self.percent.unwrap().0)
                 .checked_mul(amount.0)
                 .unwrap_or_default()
                 .saturating_div(10000)
                 .into()
-        } else {
-            0.into()
         }
     }
 
@@ -65,10 +69,10 @@ impl FeesCalculator {
     ///
     /// Panics if the invoker of the transaction is not owner.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn set_fee_percent(&mut self, percent: String) {
+    pub fn set_fee_percent(&mut self, percent: Option<String>) {
         assert_eq!(env::predecessor_account_id(), self.owner);
 
-        match parse_percent(&percent) {
+        match parse_percent(percent.as_deref()) {
             Ok(value) => self.percent = value,
             Err(e) => env::panic_str(&format!("Couldn't parse percent: {e}")),
         }
@@ -77,8 +81,9 @@ impl FeesCalculator {
     /// Returns current fee percent.
     #[must_use]
     #[allow(clippy::cast_precision_loss)]
-    pub fn get_fee_percent(&self) -> String {
-        format!("{:.2}", self.percent.0 as f64 / 100.0)
+    pub fn get_fee_percent(&self) -> Option<String> {
+        self.percent
+            .map(|U64(v)| format!("{:.2}", v as f64 / 100.0))
     }
 
     /// Return a list of supported tokens.
@@ -126,19 +131,25 @@ impl IntoStorageKey for KeyPrefix {
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn parse_percent(percent: &str) -> Result<U64, ParseError> {
+fn parse_percent(percent: Option<&str>) -> Result<Option<U64>, ParseError> {
+    let Some(percent) = percent else {
+        return Ok(None);
+    };
+
     validate_decimal_part(percent)?;
 
     let result = f64::from_str(percent)
         .map(|p| (p * 100.0) as u64) // as conversion is safe here because we validate the number of decimals
         .map_err(ParseError::ParseFloat)?;
 
-    if result < MIN_FEE_PERCENT {
+    if result == 0 {
+        Ok(None)
+    } else if result < MIN_FEE_PERCENT {
         Err(ParseError::TooLowPercent)
     } else if result > MAX_FEE_PERCENT {
         Err(ParseError::TooHighPercent)
     } else {
-        Ok(U64(result))
+        Ok(Some(U64(result)))
     }
 }
 
@@ -174,27 +185,30 @@ fn validate_decimal_part(percent: &str) -> Result<(), ParseError> {
 #[cfg(test)]
 mod tests {
     use super::{parse_percent, FeesCalculator, ParseError};
+    use near_sdk::AccountId;
 
     #[test]
     fn test_parse_percent() {
-        assert_eq!(parse_percent("10").unwrap(), 1000.into());
-        assert_eq!(parse_percent("2").unwrap(), 200.into());
-        assert_eq!(parse_percent("0.25").unwrap(), 25.into());
-        assert_eq!(parse_percent("0.01").unwrap(), 1.into());
+        assert_eq!(parse_percent(None).unwrap(), None);
+        assert_eq!(parse_percent(Some("0")).unwrap(), None);
+        assert_eq!(parse_percent(Some("10")).unwrap(), Some(1000.into()));
+        assert_eq!(parse_percent(Some("2")).unwrap(), Some(200.into()));
+        assert_eq!(parse_percent(Some("0.25")).unwrap(), Some(25.into()));
+        assert_eq!(parse_percent(Some("0.01")).unwrap(), Some(1.into()));
         assert!(matches!(
-            parse_percent("0.015").err(),
+            parse_percent(Some("0.015")).err(),
             Some(ParseError::TooManyDecimals)
         ));
         assert!(matches!(
-            parse_percent("0.009").err(),
+            parse_percent(Some("0.009")).err(),
             Some(ParseError::TooManyDecimals)
         ));
         assert!(matches!(
-            parse_percent("10.1").err(),
+            parse_percent(Some("10.1")).err(),
             Some(ParseError::TooHighPercent)
         ));
         assert!(matches!(
-            parse_percent("hello").err(),
+            parse_percent(Some("hello")).err(),
             Some(ParseError::ParseFloat(_))
         ));
     }
@@ -227,14 +241,43 @@ mod tests {
     }
 
     #[test]
+    fn test_check_set_fee() {
+        let aurora = "aurora".parse().unwrap();
+        let target_address = "0xea2342".to_string();
+        let usdt: AccountId = "usdt.near".parse().unwrap();
+        let mut contract = FeesCalculator::new(vec![usdt.clone()]);
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            50.into()
+        );
+
+        contract.set_fee_percent(Some("0".to_string()));
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            0.into()
+        );
+
+        contract.set_fee_percent(Some("2.5".to_string()));
+
+        assert_eq!(
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
+            25.into()
+        );
+    }
+
+    #[test]
     fn test_set_percent() {
         let mut contract = FeesCalculator::new(vec![]);
 
-        assert_eq!(contract.get_fee_percent(), "5.00");
-        contract.set_fee_percent("6".to_string());
-        assert_eq!(contract.get_fee_percent(), "6.00");
-        contract.set_fee_percent("7.5".to_string());
-        assert_eq!(contract.get_fee_percent(), "7.50");
+        assert_eq!(contract.get_fee_percent(), Some("5.00".to_string()));
+        contract.set_fee_percent(Some("6".to_string()));
+        assert_eq!(contract.get_fee_percent(), Some("6.00".to_string()));
+        contract.set_fee_percent(Some("7.5".to_string()));
+        assert_eq!(contract.get_fee_percent(), Some("7.50".to_string()));
+        contract.set_fee_percent(Some("0".to_string()));
+        assert_eq!(contract.get_fee_percent(), None);
     }
 
     #[test]
@@ -243,13 +286,13 @@ mod tests {
     )]
     fn test_set_percent_with_many_decimals() {
         let mut contract = FeesCalculator::new(vec![]);
-        contract.set_fee_percent("6.123".to_string());
+        contract.set_fee_percent(Some("6.123".to_string()));
     }
 
     #[test]
     #[should_panic(expected = "Couldn't parse percent: provided percent is more than 10%")]
     fn test_set_too_high_percents() {
         let mut contract = FeesCalculator::new(vec![]);
-        contract.set_fee_percent("12.12".to_string());
+        contract.set_fee_percent(Some("12.12".to_string()));
     }
 }
