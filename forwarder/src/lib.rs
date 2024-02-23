@@ -51,7 +51,7 @@ impl AuroraForwarder {
                 &current_account_id,
                 target_address.as_str(),
                 &target_network,
-                &fees_contract_id
+                &fees_contract_id,
             ),
             "Invalid format of the contract account id"
         );

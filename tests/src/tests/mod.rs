@@ -11,9 +11,9 @@ mod wrap;
 
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
-const MAX_NUM_CONTRACTS: u8 = 10;
+const MAX_NUM_CONTRACTS: usize = 8;
 
-static WNEAR: Lazy<AccountId> = Lazy::new(|| "wnear.test.near".parse().unwrap());
+static WNEAR: Lazy<AccountId> = Lazy::new(|| "wrap.test.near".parse().unwrap());
 
 #[tokio::test]
 async fn test_creating_ft() {
@@ -209,8 +209,9 @@ async fn test_using_factory() {
 
     let sandbox = Sandbox::new().await.unwrap();
     let fees = sandbox.deploy_fees(&[]).await.unwrap();
+    let _ = sandbox.deploy_wrap_near().await.unwrap();
     let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
-    let parameters = (0..MAX_NUM_CONTRACTS)
+    let parameters = (0..u8::try_from(MAX_NUM_CONTRACTS).unwrap())
         .map(|i| DeployParameters {
             target_address: Address::from_array([i; 20]).encode(),
             target_network: format!("silo-{i}.test.near").parse().unwrap(),
@@ -221,7 +222,7 @@ async fn test_using_factory() {
     let factory_id = factory.id();
     let fees_id = fees.id();
 
-    assert_eq!(forwarder_ids.len(), 10);
+    assert_eq!(forwarder_ids.len(), MAX_NUM_CONTRACTS);
 
     for (id, params) in forwarder_ids.iter().zip(parameters) {
         assert!(sandbox.balance(id).await > NearToken::from_millinear(1800).as_yoctonear());
@@ -231,7 +232,7 @@ async fn test_using_factory() {
             forwarder_utils::forwarder_prefix(
                 &params.target_address,
                 &params.target_network,
-                &fees_id.as_str().parse().unwrap()
+                &fees_id.as_str().parse().unwrap(),
             )
         );
 
