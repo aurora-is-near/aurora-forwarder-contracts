@@ -73,7 +73,7 @@ mac_alias = "download-wasm-opt-macos"
 
 [tasks.download-wasm-opt-macos]
 script = '''
-if [[ ! -f res/binaryen/bin/wasm-opt ]]; then
+if [ ! -f res/binaryen/bin/wasm-opt ]; then
    mkdir -p res/binaryen
    curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-arm64-macos.tar.gz | tar -xz -C res/binaryen
    mv res/binaryen/binaryen-version_117/bin res/binaryen
@@ -84,7 +84,7 @@ fi
 
 [tasks.download-wasm-opt-linux]
 script = '''
-if [[ ! -f res/binaryen/bin/wasm-opt ]]; then
+if [ ! -f res/binaryen/bin/wasm-opt ]; then
    mkdir -p res/binaryen
    curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz | tar -xz -C res/binaryen
    mv res/binaryen/binaryen-version_117/bin res/binaryen
