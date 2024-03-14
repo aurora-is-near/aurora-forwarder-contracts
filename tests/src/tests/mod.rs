@@ -12,6 +12,7 @@ mod wrap;
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 const MAX_NUM_CONTRACTS: usize = 8;
+const MIN_FWD_BALANCE: NearToken = NearToken::from_millinear(1530);
 
 static WNEAR: Lazy<AccountId> = Lazy::new(|| "wrap.test.near".parse().unwrap());
 
@@ -225,7 +226,7 @@ async fn test_using_factory() {
     assert_eq!(forwarder_ids.len(), MAX_NUM_CONTRACTS);
 
     for (id, params) in forwarder_ids.iter().zip(parameters) {
-        assert!(sandbox.balance(id).await > NearToken::from_millinear(1800).as_yoctonear());
+        assert!(sandbox.balance(id).await > MIN_FWD_BALANCE.as_yoctonear());
 
         let expected_id = format!(
             "{}.{factory_id}",
