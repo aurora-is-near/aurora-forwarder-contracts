@@ -68,28 +68,31 @@ script = '''
  '''
 
 [tasks.download-wasm-opt]
-linux_alias = "download-wasm-opt-linux"
-mac_alias = "download-wasm-opt-macos"
-
-[tasks.download-wasm-opt-macos]
+script_runner = "bash"
 script = '''
-if [ ! -f res/binaryen/bin/wasm-opt ]; then
-   mkdir -p res/binaryen
-   curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-arm64-macos.tar.gz | tar -xz -C res/binaryen
-   mv res/binaryen/binaryen-version_117/bin res/binaryen
-   mv res/binaryen/binaryen-version_117/lib res/binaryen
-   rm -rf mv res/binaryen/binaryen-version_117
-fi
-'''
+if [[ ! -f res/binaryen/bin/wasm-opt ]]; then
+  mkdir -p res/binaryen
 
-[tasks.download-wasm-opt-linux]
-script = '''
-if [ ! -f res/binaryen/bin/wasm-opt ]; then
-   mkdir -p res/binaryen
-   curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz | tar -xz -C res/binaryen
-   mv res/binaryen/binaryen-version_117/bin res/binaryen
-   mv res/binaryen/binaryen-version_117/lib res/binaryen
-   rm -rf mv res/binaryen/binaryen-version_117
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [[ $(uname -m) == "arm64" ]]; then
+      os="arm64-macos"
+    else
+      os="x86_64-macos"
+    fi
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if [[ $(uname -m) == "x86_64" ]]; then
+      os="x86_64-linux"
+    else
+      os="aarch64-linux"
+    fi
+  else
+     exit 1
+  fi
+
+  curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-${os}.tar.gz | tar -xz -C res/binaryen
+  mv res/binaryen/binaryen-version_117/bin res/binaryen
+  mv res/binaryen/binaryen-version_117/lib res/binaryen
+  rm -rf mv res/binaryen/binaryen-version_117
 fi
 '''
 
