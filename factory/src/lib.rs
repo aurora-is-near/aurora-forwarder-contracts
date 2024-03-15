@@ -6,7 +6,7 @@ use near_sdk::{
 };
 
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
-const INIT_BALANCE: Balance = 1_800_000_000_000_000_000_000_000;
+const INIT_BALANCE: Balance = 1_530_000_000_000_000_000_000_000;
 const STORAGE_BALANCE_BOUND: Balance = 1_250_000_000_000_000_000_000;
 const FORWARDER_NEW_GAS: Gas = Gas(1_000_000_000_000);
 const MAX_NUM_CONTRACTS: usize = 8;

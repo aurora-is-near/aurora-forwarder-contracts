@@ -7,7 +7,7 @@ use near_sdk::{
 };
 use std::str::FromStr;
 
-const MINIMUM_BALANCE: Balance = 1_800_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: Balance = 1_530_000_000_000_000_000_000_000;
 const MAX_FEE_PERCENT: u128 = 10;
 
 const CALCULATE_FEES_GAS: Gas = Gas(5_000_000_000_000);

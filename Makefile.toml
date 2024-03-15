@@ -12,6 +12,7 @@ FEES_WASM_FILE = "aurora-forward-fees.wasm"
 dependencies = [
     "build-contracts",
     "cp-contracts",
+    "optimize-contracts",
     "build-factory",
     "cp-factory",
     "contract-stats"
@@ -29,6 +30,8 @@ args = [
     "--all-targets"
 ]
 
+[tasks.test]
+alias = "tests"
 
 [tasks.tests]
 command = "cargo"
@@ -54,6 +57,44 @@ args = [
     "--exclude",
     "aurora-forwarder-factory"
 ]
+
+[tasks.optimize-contracts]
+dependencies = ["download-wasm-opt"]
+script = '''
+   filesize_before=$(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')
+   res/binaryen/bin/wasm-opt -O4 res/${FWD_WASM_FILE} -o res/${FWD_WASM_FILE} --strip-debug --vacuum
+   filesize_after=$(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')
+   echo "File size before: [$filesize_before] and after: [$filesize_after]"
+ '''
+
+[tasks.download-wasm-opt]
+script_runner = "bash"
+script = '''
+if [[ ! -f res/binaryen/bin/wasm-opt ]]; then
+  mkdir -p res/binaryen
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [[ $(uname -m) == "arm64" ]]; then
+      os="arm64-macos"
+    else
+      os="x86_64-macos"
+    fi
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if [[ $(uname -m) == "x86_64" ]]; then
+      os="x86_64-linux"
+    else
+      os="aarch64-linux"
+    fi
+  else
+     exit 1
+  fi
+
+  curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-${os}.tar.gz | tar -xz -C res/binaryen
+  mv res/binaryen/binaryen-version_117/bin res/binaryen
+  mv res/binaryen/binaryen-version_117/lib res/binaryen
+  rm -rf res/binaryen/binaryen-version_117
+fi
+'''
 
 [tasks.build-factory]
 command = "cargo"
@@ -81,10 +122,10 @@ cp target/${TARGET}/release/aurora_forwarder_factory.wasm res/${FWD_FACTORY_WASM
 [tasks.clean]
 dependencies = ["rm-contracts"]
 command = "cargo"
-args = [ "clean" ]
+args = ["clean"]
 
 [tasks.rm-contracts]
-script = "rm -rf res/${FWD_WASM_FILE} res/${FEES_WASM_FILE} res/${FWD_FACTORY_WASM_FILE}"
+script = "rm -rf res/${FWD_WASM_FILE} res/${FEES_WASM_FILE} res/${FWD_FACTORY_WASM_FILE} res/binaryen"
 
 [tasks.contract-stats]
 category = "Tools"
