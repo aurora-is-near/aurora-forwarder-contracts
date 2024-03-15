@@ -92,7 +92,7 @@ if [[ ! -f res/binaryen/bin/wasm-opt ]]; then
   curl -sL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-${os}.tar.gz | tar -xz -C res/binaryen
   mv res/binaryen/binaryen-version_117/bin res/binaryen
   mv res/binaryen/binaryen-version_117/lib res/binaryen
-  rm -rf mv res/binaryen/binaryen-version_117
+  rm -rf res/binaryen/binaryen-version_117
 fi
 '''
 
