@@ -17,12 +17,12 @@ as_conversions = "deny"
 
 [dependencies]
 aurora-forwarder-factory = { path = "../factory" }
-forwarder-utils = {  path = "../utils" }
+forwarder-utils = { path = "../utils" }
 
 anyhow.workspace = true
 aurora-engine-types.workspace = true
 ethabi.workspace = true
-near-sdk.workspace = true
+near-sdk = { workspace = true, features = ["unit-testing"] }
 near-workspaces.workspace = true
 once_cell.workspace = true
 tokio.workspace = true

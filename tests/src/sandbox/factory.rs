@@ -28,9 +28,7 @@ impl Factory for Contract {
         let result = self
             .as_account()
             .call(forwarder_id, "forward")
-            .args_json(json!({
-                "token_id": token_id
-            }))
+            .args_borsh(token_id)
             .deposit(NearToken::from_yoctonear(1))
             .max_gas()
             .transact()

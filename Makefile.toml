@@ -43,7 +43,7 @@ args = [
     "--all-targets"
 ]
 
-[tasks.build-contracts]
+[tasks.build-forwarder]
 command = "cargo"
 env = { "RUSTFLAGS" = "-C link-arg=-s" }
 args = [
@@ -51,12 +51,24 @@ args = [
     "--target",
     "${TARGET}",
     "--release",
-    "--workspace",
-    "--exclude",
-    "aurora-forwarder-tests",
-    "--exclude",
-    "aurora-forwarder-factory"
+    "--package",
+    "aurora-forwarder"
 ]
+
+[tasks.build-fees]
+command = "cargo"
+env = { "RUSTFLAGS" = "-C link-arg=-s" }
+args = [
+    "build",
+    "--target",
+    "${TARGET}",
+    "--release",
+    "--package",
+    "aurora-forward-fees",
+]
+
+[tasks.build-contracts]
+dependencies = ["build-forwarder", "build-fees"]
 
 [tasks.optimize-contracts]
 dependencies = ["download-wasm-opt"]

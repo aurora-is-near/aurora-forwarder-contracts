@@ -17,4 +17,5 @@ nursery = "deny"
 pedantic = "deny"
 
 [dependencies]
+aurora-engine-types.workspace = true
 near-sdk.workspace = true
