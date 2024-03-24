@@ -1,10 +1,10 @@
 #![cfg_attr(target_arch = "wasm32", no_std)]
 #![allow(clippy::module_name_repetitions, clippy::as_conversions)]
 
-use crate::error::ContractError;
 use borsh::BorshDeserialize;
 use core::str::FromStr;
 
+use crate::error::ContractError;
 use crate::params::{
     ft_balance_args, ft_transfer_args, ft_transfer_call_args, FeesParams, FinishForwardParams,
     ForwardParams, State,
@@ -24,17 +24,17 @@ mod types;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-const MINIMUM_BALANCE: u128 = 450_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 445_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
 const MAX_FEE_PERCENT: u128 = 10;
 
-const CALCULATE_FEES_GAS: u64 = 5_000_000_000_000;
-const NEAR_DEPOSIT_GAS: u64 = 5_000_000_000_000;
-const FT_BALANCE_GAS: u64 = 5_000_000_000_000;
-const FT_TRANSFER_GAS: u64 = 5_000_000_000_000;
-const FT_TRANSFER_CALL_GAS: u64 = 50_000_000_000_000;
-const CALCULATE_FEES_CALLBACK_GAS: u64 = 100_000_000_000_000;
-const FINISH_FORWARD_GAS: u64 = 70_000_000_000_000;
+const CALCULATE_FEES_GAS: u64 = 4_000_000_000_000;
+const NEAR_DEPOSIT_GAS: u64 = 2_000_000_000_000;
+const FT_BALANCE_GAS: u64 = 2_000_000_000_000;
+const FT_TRANSFER_GAS: u64 = 3_000_000_000_000;
+const FT_TRANSFER_CALL_GAS: u64 = 40_000_000_000_000;
+const CALCULATE_FEES_CALLBACK_GAS: u64 = 80_000_000_000_000;
+const FINISH_FORWARD_GAS: u64 = 60_000_000_000_000;
 
 // Key is used for upgrading the smart contract.
 const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";

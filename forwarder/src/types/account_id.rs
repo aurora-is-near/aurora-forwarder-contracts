@@ -3,8 +3,8 @@ use borsh::{io, BorshDeserialize, BorshSerialize};
 
 use crate::error::ContractError;
 
-pub const MIN_ACCOUNT_ID_LEN: usize = 2;
-pub const MAX_ACCOUNT_ID_LEN: usize = 64;
+const MIN_ACCOUNT_ID_LEN: usize = 2;
+const MAX_ACCOUNT_ID_LEN: usize = 64;
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct AccountId(ArrayString<MAX_ACCOUNT_ID_LEN>);

@@ -1,5 +1,5 @@
 use crate::runtime::sys::exports;
-use crate::types::{AccountId, PromiseAction, PromiseBatchAction, RawPublicKey};
+use crate::types::{AccountId, PromiseAction, PromiseBatchAction};
 
 pub use env::Env;
 pub use handler::PromiseHandler;
@@ -62,8 +62,7 @@ impl Runtime {
         for action in &args.actions {
             match action {
                 PromiseAction::AddFullAccessKey { public_key, nonce } => {
-                    let pk: RawPublicKey = public_key.into();
-                    let pk_bytes = pk.as_bytes();
+                    let pk_bytes = public_key.as_bytes();
                     exports::promise_batch_action_add_key_with_full_access(
                         id,
                         pk_bytes.len() as _,

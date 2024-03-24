@@ -11,10 +11,12 @@ pub trait StorageIntermediate: Sized {
 
     fn to_vec(&self) -> Vec<u8> {
         let len = self.len();
-        let mut buff = [0; 256];
-        self.copy_to_slice(&mut buff[..len]);
         let mut buf = Vec::new();
-        buf.try_extend_from_slice(&buff[..len]).unwrap();
+        assert!(len <= buf.capacity());
+        unsafe {
+            buf.set_len(len);
+        }
+        self.copy_to_slice(&mut buf[..len]);
         buf
     }
 

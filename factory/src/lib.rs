@@ -7,7 +7,7 @@ use near_sdk::{
 };
 
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
-const INIT_BALANCE: NearToken = NearToken::from_millinear(450);
+const INIT_BALANCE: NearToken = NearToken::from_millinear(445);
 const STORAGE_BALANCE_BOUND: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const FORWARDER_NEW_GAS: Gas = Gas::from_tgas(5);
 const MAX_NUM_CONTRACTS: usize = 8;

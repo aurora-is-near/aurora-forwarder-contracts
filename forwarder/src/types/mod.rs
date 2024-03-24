@@ -7,7 +7,7 @@ pub use address::Address;
 pub use promise::{
     PromiseAction, PromiseBatchAction, PromiseCreateArgs, PromiseResult, PromiseWithCallbackArgs,
 };
-pub use public_key::{PublicKey, RawPublicKey};
+pub use public_key::PublicKey;
 
 pub type Vec<T> = arrayvec::ArrayVec<T, 256>;
 

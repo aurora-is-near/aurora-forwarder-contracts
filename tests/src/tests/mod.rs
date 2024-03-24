@@ -12,7 +12,7 @@ mod wrap;
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 const MAX_NUM_CONTRACTS: usize = 8;
-const MIN_FWD_BALANCE: NearToken = NearToken::from_millinear(450);
+const MIN_FWD_BALANCE: NearToken = NearToken::from_millinear(445);
 
 static WNEAR: Lazy<AccountId> = Lazy::new(|| AccountId::from_str("wrap.test.near").unwrap());
 

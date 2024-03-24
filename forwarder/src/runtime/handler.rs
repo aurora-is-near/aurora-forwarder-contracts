@@ -136,12 +136,6 @@ impl PromiseHandler for Runtime {
         PromiseId::new(id)
     }
 
-    fn promise_return(&mut self, promise: PromiseId) {
-        unsafe {
-            exports::promise_return(promise.raw());
-        }
-    }
-
     unsafe fn promise_create_batch<const S: usize>(
         &mut self,
         args: &PromiseBatchAction<S>,
@@ -153,5 +147,11 @@ impl PromiseHandler for Runtime {
         Self::append_batch_actions(id, args);
 
         PromiseId::new(id)
+    }
+
+    fn promise_return(&mut self, promise: PromiseId) {
+        unsafe {
+            exports::promise_return(promise.raw());
+        }
     }
 }
