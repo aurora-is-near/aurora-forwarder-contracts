@@ -32,8 +32,8 @@ const NEAR_DEPOSIT_GAS: u64 = 2_000_000_000_000;
 const FT_BALANCE_GAS: u64 = 2_000_000_000_000;
 const FT_TRANSFER_GAS: u64 = 3_000_000_000_000;
 const FT_TRANSFER_CALL_GAS: u64 = 50_000_000_000_000;
-const CALCULATE_FEES_CALLBACK_GAS: u64 = 80_000_000_000_000;
-const FINISH_FORWARD_GAS: u64 = 60_000_000_000_000;
+const CALCULATE_FEES_CALLBACK_GAS: u64 = 90_000_000_000_000;
+const FINISH_FORWARD_GAS: u64 = 70_000_000_000_000;
 
 // Key is used for upgrading the smart contract.
 // String representation of the key is: "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
