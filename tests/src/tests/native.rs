@@ -2,8 +2,7 @@ use crate::sandbox::aurora::Aurora;
 use crate::sandbox::factory::Factory;
 use crate::sandbox::fungible_token::FungibleToken;
 use crate::sandbox::Sandbox;
-use crate::tests::MIN_FWD_BALANCE;
-use aurora_forwarder_factory::DeployParameters;
+use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE};
 use near_workspaces::types::NearToken;
 use near_workspaces::AccountId;
 use once_cell::sync::Lazy;
@@ -44,17 +43,13 @@ async fn test_forward_native_tokens() {
     let fwd_balance = sandbox.balance(&forwarder).await;
     assert_eq!(
         fwd_balance / rounder,
-        transfer
-            .checked_add(MIN_FWD_BALANCE)
-            .unwrap()
-            .as_yoctonear()
-            / rounder
+        transfer.checked_add(INIT_BALANCE).unwrap().as_yoctonear() / rounder
     );
 
     factory.forward(&forwarder, &NEAR).await.unwrap();
 
     let fwd_balance = sandbox.balance(&forwarder).await;
-    assert_eq!(fwd_balance / rounder, MIN_FWD_BALANCE.as_millinear());
+    assert_eq!(fwd_balance / rounder, INIT_BALANCE.as_millinear());
 
     let fee = transfer.as_yoctonear() * 5 / 100;
     let deposit = transfer.as_yoctonear() - fee;
@@ -103,17 +98,13 @@ async fn test_forward_native_tokens_with_zero_fee() {
     let fwd_balance = sandbox.balance(&forwarder).await;
     assert_eq!(
         fwd_balance / rounder,
-        transfer
-            .checked_add(MIN_FWD_BALANCE)
-            .unwrap()
-            .as_yoctonear()
-            / rounder
+        transfer.checked_add(INIT_BALANCE).unwrap().as_yoctonear() / rounder
     );
 
     factory.forward(&forwarder, &NEAR).await.unwrap();
 
     let fwd_balance = sandbox.balance(&forwarder).await;
-    assert_eq!(fwd_balance / rounder, MIN_FWD_BALANCE.as_millinear());
+    assert_eq!(fwd_balance / rounder, INIT_BALANCE.as_millinear());
 
     let deposit = transfer.as_yoctonear();
 

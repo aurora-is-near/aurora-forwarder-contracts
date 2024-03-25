@@ -1,4 +1,5 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use aurora_engine_types::types::Address;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near_bindgen, AccountId, IntoStorageKey, PanicOnDefault};
 use std::collections::BTreeSet;
@@ -14,6 +15,7 @@ const DEFAULT_PERCENT: U64 = U64(500); // 5%
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct FeesCalculator {
     percent: Option<U64>,
     owner: AccountId,
@@ -29,6 +31,7 @@ impl FeesCalculator {
     /// The constructor panics if the state already exists.
     #[init]
     #[must_use]
+    #[allow(clippy::use_self)]
     pub fn new(tokens: Vec<AccountId>) -> Self {
         Self {
             percent: Some(DEFAULT_PERCENT),
@@ -43,12 +46,13 @@ impl FeesCalculator {
     ///
     /// There is a safe unwrap because we return 0 if the percent is None.
     #[must_use]
+    #[result_serializer(borsh)]
     pub fn calculate_fees(
         &self,
-        amount: U128,
-        token_id: &AccountId,
-        target_network: &AccountId,
-        target_address: String,
+        #[serializer(borsh)] amount: U128,
+        #[serializer(borsh)] token_id: &AccountId,
+        #[serializer(borsh)] target_network: &AccountId,
+        #[serializer(borsh)] target_address: Address,
     ) -> U128 {
         let _ = (target_network, target_address);
 
@@ -118,6 +122,7 @@ impl FeesCalculator {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 enum KeyPrefix {
     SupportedTokens,
 }
@@ -185,6 +190,7 @@ fn validate_decimal_part(percent: &str) -> Result<(), ParseError> {
 #[cfg(test)]
 mod tests {
     use super::{parse_percent, FeesCalculator, ParseError};
+    use aurora_engine_types::types::Address;
     use near_sdk::AccountId;
 
     #[test]
@@ -216,19 +222,19 @@ mod tests {
     #[test]
     fn test_check_supported_tokens() {
         let aurora = "aurora".parse().unwrap();
-        let target_address = "0xea2342".to_string();
+        let target_address = Address::default();
         let usdt = "usdt.near".parse().unwrap();
         let mut contract = FeesCalculator::new(vec![]);
 
         assert_eq!(
-            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
             0.into() // we don't support the `usdt.near` yet, so we get 0 here
         );
 
         contract.add_supported_token(usdt.clone());
 
         assert_eq!(
-            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
             50.into()
         );
 
@@ -243,19 +249,19 @@ mod tests {
     #[test]
     fn test_check_set_fee() {
         let aurora = "aurora".parse().unwrap();
-        let target_address = "0xea2342".to_string();
+        let target_address = Address::default();
         let usdt: AccountId = "usdt.near".parse().unwrap();
         let mut contract = FeesCalculator::new(vec![usdt.clone()]);
 
         assert_eq!(
-            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
             50.into()
         );
 
         contract.set_fee_percent(Some("0".to_string()));
 
         assert_eq!(
-            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address.clone()),
+            contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
             0.into()
         );
 

@@ -1,235 +1,269 @@
-use forwarder_utils::forwarder_prefix;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
-use near_sdk::{
-    assert_one_yocto, assert_self, env, ext_contract, near_bindgen, AccountId, Balance, Gas,
-    PanicOnDefault, Promise, PromiseOrValue, PublicKey,
-};
-use std::str::FromStr;
+#![cfg_attr(target_arch = "wasm32", no_std)]
+#![allow(clippy::module_name_repetitions, clippy::as_conversions)]
 
-const MINIMUM_BALANCE: Balance = 1_530_000_000_000_000_000_000_000;
+use borsh::BorshDeserialize;
+use core::alloc::{GlobalAlloc, Layout};
+
+use crate::error::ContractError;
+use crate::params::{
+    ft_balance_args, ft_transfer_args, ft_transfer_call_args, FeesParams, FinishForwardParams,
+    ForwardParams, State,
+};
+use crate::runtime::{panic_utf8, Env, PromiseHandler, Runtime, SdkExpect, SdkUnwrap, IO};
+use crate::types::{
+    AccountId, PromiseAction, PromiseBatchAction, PromiseCreateArgs, PromiseResult,
+    PromiseWithCallbackArgs, Vec,
+};
+
+mod error;
+mod params;
+mod runtime;
+mod types;
+
+#[cfg(target_arch = "wasm32")]
+#[global_allocator]
+static ALLOCATOR: NoopAllocator = NoopAllocator;
+
+const MINIMUM_BALANCE: u128 = 360_000_000_000_000_000_000_000;
+const ZERO_YOCTO: u128 = 0;
 const MAX_FEE_PERCENT: u128 = 10;
 
-const CALCULATE_FEES_GAS: Gas = Gas(5_000_000_000_000);
-const NEAR_DEPOSIT_GAS: Gas = Gas(5_000_000_000_000);
-const FT_TRANSFER_GAS: Gas = Gas(5_000_000_000_000);
-const FT_TRANSFER_CALL_GAS: Gas = Gas(30_000_000_000_000);
-const CALCULATE_FEES_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
-const FINISH_FORWARD_GAS: Gas = Gas(30_000_000_000_000);
+const CALCULATE_FEES_GAS: u64 = 4_000_000_000_000;
+const NEAR_DEPOSIT_GAS: u64 = 2_000_000_000_000;
+const FT_BALANCE_GAS: u64 = 2_000_000_000_000;
+const FT_TRANSFER_GAS: u64 = 3_000_000_000_000;
+const FT_TRANSFER_CALL_GAS: u64 = 50_000_000_000_000;
+const CALCULATE_FEES_CALLBACK_GAS: u64 = 90_000_000_000_000;
+const FINISH_FORWARD_GAS: u64 = 70_000_000_000_000;
 
 // Key is used for upgrading the smart contract.
-const UPDATER_PK: &str = "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
+// String representation of the key is: "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
+const UPDATER_PK: [u8; 33] = [
+    0, 157, 55, 171, 39, 212, 8, 14, 19, 58, 101, 78, 158, 202, 229, 222, 152, 23, 144, 112, 79,
+    136, 229, 203, 142, 41, 95, 170, 31, 58, 47, 213, 152,
+];
 // In case we get near as a token id it means we need to transfer native NEAR tokens.
 const NEAR: &str = "near";
 
-#[near_bindgen]
-#[derive(Debug, BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct AuroraForwarder {
-    target_address: String,
-    target_network: AccountId,
-    fees_contract_id: AccountId,
-    wnear_contract_id: AccountId,
-    owner: AccountId,
+#[no_mangle]
+pub extern "C" fn new() {
+    let mut io = Runtime;
+
+    if State::load(&io).is_some() {
+        panic_utf8(b"ERR_ALREADY_INITIALIZED");
+    }
+
+    let state: State = io.read_input_borsh().sdk_unwrap();
+    state.save(&mut io);
+
+    let current_account_id = io.current_account_id();
+    let promise = PromiseBatchAction {
+        target_account_id: current_account_id,
+        actions: [PromiseAction::AddFullAccessKey {
+            public_key: UPDATER_PK,
+            nonce: 0,
+        }],
+    };
+
+    let promise_id = unsafe { io.promise_create_batch(&promise) };
+    io.promise_return(promise_id);
 }
 
-#[near_bindgen]
-impl AuroraForwarder {
-    #[must_use]
-    #[init]
-    #[allow(clippy::needless_pass_by_value, clippy::missing_panics_doc)]
-    pub fn new(
-        target_address: String,
-        target_network: AccountId,
-        fees_contract_id: AccountId,
-        wnear_contract_id: AccountId,
-    ) -> Self {
-        let current_account_id = env::current_account_id();
-        let target_address = target_address.trim_start_matches("0x").to_string();
+#[no_mangle]
+pub extern "C" fn forward() {
+    let io = Runtime;
 
-        assert!(
-            is_valid_account_id(
-                &current_account_id,
-                target_address.as_str(),
-                &target_network,
-                &fees_contract_id,
-            ),
-            "Invalid format of the contract account id"
-        );
+    io.assert_one_yocto().sdk_unwrap();
 
-        let pk = PublicKey::from_str(UPDATER_PK).unwrap();
-        let _ = Promise::new(current_account_id).add_full_access_key(pk);
-        let owner = env::predecessor_account_id();
+    let params: ForwardParams = io.read_input_borsh().sdk_unwrap();
 
-        Self {
-            target_address,
-            target_network,
-            fees_contract_id,
-            wnear_contract_id,
-            owner,
-        }
+    if params.token_id.as_str() == NEAR {
+        forward_native_token(io);
+    } else {
+        forward_nep141_token(io, params.token_id);
     }
+}
 
-    /// Main entry point of the contract. Initiate forwarding tokens.
-    #[payable]
-    pub fn forward(&mut self, token_id: &AccountId) -> Promise {
-        assert_one_yocto();
+#[no_mangle]
+pub extern "C" fn calculate_fees_callback() {
+    let mut io = Runtime;
+    io.assert_private_call().sdk_unwrap();
 
-        if token_id.as_str() == NEAR {
-            self.forward_native_token()
-        } else {
-            Self::forward_nep141_token(token_id)
-        }
-    }
+    let params: ForwardParams = io.read_input_borsh().sdk_unwrap();
+    let state = State::load(&io).sdk_expect("No state");
+    let amount: u128 = match io.promise_result(0).sdk_expect("No promise result") {
+        PromiseResult::Successful(v) => params::vec_to_number(&v).sdk_unwrap(),
+        _ => panic_utf8(b"FEE RESULT IS NOT READY"),
+    };
 
-    #[payable]
-    pub fn calculate_fees_callback(
-        &mut self,
-        #[callback] amount: U128,
-        token_id: &AccountId,
-    ) -> Promise {
-        assert_self();
-
-        call_calculate_fees(
-            self.fees_contract_id.clone(),
-            amount,
-            token_id,
-            &self.target_network,
-            &self.target_address,
-        )
-        .then(call_finish_forward(amount, token_id.clone()))
-    }
-
-    /// Callback which finishes the forward flow.
-    ///
-    /// # Panics
-    ///
-    /// Panics if percent of the provided fee is more than `MAX_FEE_PERCENT`.
-    #[payable]
-    pub fn finish_forward_callback(
-        &mut self,
-        #[callback] fee: U128,
-        amount: U128,
-        token_id: AccountId,
-    ) -> Promise {
-        assert_self();
-        assert!(
-            is_fee_allowed(amount, fee),
-            "The calculated fee couldn't be more than {MAX_FEE_PERCENT} %"
-        );
-
-        let amount = U128::from(amount.0.saturating_sub(fee.0));
-        let ft_transfer_call = ext_token::ext(token_id.clone())
-            .with_attached_deposit(near_sdk::ONE_YOCTO)
-            .with_static_gas(FT_TRANSFER_CALL_GAS)
-            .ft_transfer_call(
-                self.target_network.clone(),
+    let promise_id = unsafe {
+        let promise_id = io.promise_create_and_combine(&[PromiseCreateArgs {
+            target_account_id: state.fees_contract_id,
+            method: "calculate_fees",
+            args: types::to_borsh(&FeesParams {
                 amount,
-                None,
-                self.target_address.clone(),
-            );
+                token_id: &params.token_id,
+                target_network: &state.target_network,
+                target_address: state.target_address,
+            })
+            .sdk_unwrap(),
+            attached_balance: ZERO_YOCTO,
+            attached_gas: CALCULATE_FEES_GAS,
+        }]);
 
-        if fee.0 > 0 {
-            ft_transfer_call.then(
-                ext_token::ext(token_id)
-                    .with_attached_deposit(near_sdk::ONE_YOCTO)
-                    .with_static_gas(FT_TRANSFER_GAS)
-                    .ft_transfer(self.fees_contract_id.clone(), fee),
+        io.promise_attach_callback(
+            promise_id,
+            &PromiseCreateArgs {
+                target_account_id: io.current_account_id(),
+                method: "finish_forward_callback",
+                args: types::to_borsh(&FinishForwardParams {
+                    amount,
+                    token_id: params.token_id,
+                    promise_idx: 0,
+                })
+                .sdk_unwrap(),
+                attached_balance: 2,
+                attached_gas: FINISH_FORWARD_GAS,
+            },
+        )
+    };
+
+    io.promise_return(promise_id);
+}
+
+#[no_mangle]
+pub extern "C" fn finish_forward_callback() {
+    let mut io = Runtime;
+    io.assert_private_call().sdk_unwrap();
+
+    let params: FinishForwardParams = io.read_input_borsh().sdk_unwrap();
+    let state = State::load(&io).sdk_expect("No state");
+    let fee: u128 = match io
+        .promise_result(params.promise_idx)
+        .sdk_expect("No promise result")
+    {
+        PromiseResult::Successful(v) => u128::try_from_slice(&v)
+            .map_err(|_| ContractError::BorshDeserializeError)
+            .sdk_unwrap(),
+        _ => panic_utf8(b"FEE RESULT IS NOT READY"),
+    };
+
+    if !is_fee_allowed(params.amount, fee) {
+        panic_utf8(b"FEE IS TOO BIG");
+    }
+
+    let amount = params.amount.saturating_sub(fee);
+
+    let mut promise_id = unsafe {
+        io.promise_create_call(&PromiseCreateArgs {
+            target_account_id: params.token_id,
+            method: "ft_transfer_call",
+            args: ft_transfer_call_args(&state.target_network, amount, state.target_address),
+            attached_balance: 1,
+            attached_gas: FT_TRANSFER_CALL_GAS,
+        })
+    };
+
+    if fee > 0 {
+        promise_id = unsafe {
+            io.promise_attach_callback(
+                promise_id,
+                &PromiseCreateArgs {
+                    target_account_id: params.token_id,
+                    method: "ft_transfer",
+                    args: ft_transfer_args(&state.fees_contract_id, fee),
+                    attached_balance: 1,
+                    attached_gas: FT_TRANSFER_GAS,
+                },
             )
-        } else {
-            ft_transfer_call
-        }
+        };
     }
 
-    fn forward_nep141_token(token_id: &AccountId) -> Promise {
-        ext_token::ext(token_id.clone())
-            .ft_balance_of(env::current_account_id())
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_attached_deposit(env::attached_deposit())
-                    .with_static_gas(CALCULATE_FEES_CALLBACK_GAS)
-                    .calculate_fees_callback(token_id),
-            )
-    }
-
-    fn forward_native_token(&self) -> Promise {
-        let amount = env::account_balance()
-            .checked_sub(MINIMUM_BALANCE)
-            .filter(|a| *a > 0)
-            .expect("Too low balance");
-
-        ext_wnear::ext(self.wnear_contract_id.clone())
-            .with_attached_deposit(amount)
-            .with_static_gas(NEAR_DEPOSIT_GAS)
-            .near_deposit()
-            .then(call_calculate_fees(
-                self.fees_contract_id.clone(),
-                amount.into(),
-                &self.wnear_contract_id,
-                &self.target_network,
-                &self.target_address,
-            ))
-            .then(call_finish_forward(
-                amount.into(),
-                self.wnear_contract_id.clone(),
-            ))
-    }
+    io.promise_return(promise_id);
 }
 
-#[ext_contract(ext_token)]
-pub trait ExtToken {
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
+fn forward_native_token<I: IO + Env + PromiseHandler>(mut io: I) {
+    let amount = io
+        .account_balance()
+        .checked_sub(MINIMUM_BALANCE)
+        .filter(|a| *a > 0)
+        .expect("Too low balance");
 
-    fn ft_transfer(&self, receiver_id: AccountId, amount: U128);
+    let state = State::load(&io).unwrap();
 
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
+    let promise_id = unsafe {
+        let promise_id = io.promise_create_and_combine(&[
+            PromiseCreateArgs {
+                target_account_id: state.wnear_contract_id,
+                method: "near_deposit",
+                args: Vec::new(),
+                attached_balance: amount,
+                attached_gas: NEAR_DEPOSIT_GAS,
+            },
+            PromiseCreateArgs {
+                target_account_id: state.fees_contract_id,
+                method: "calculate_fees",
+                args: types::to_borsh(&FeesParams {
+                    amount,
+                    token_id: &state.wnear_contract_id,
+                    target_network: &state.target_network,
+                    target_address: state.target_address,
+                })
+                .sdk_unwrap(),
+                attached_balance: ZERO_YOCTO,
+                attached_gas: CALCULATE_FEES_GAS,
+            },
+        ]);
+
+        io.promise_attach_callback(
+            promise_id,
+            &PromiseCreateArgs {
+                target_account_id: io.current_account_id(),
+                method: "finish_forward_callback",
+                args: types::to_borsh(&FinishForwardParams {
+                    amount,
+                    token_id: state.wnear_contract_id,
+                    promise_idx: 1,
+                })
+                .sdk_unwrap(),
+                attached_balance: 2,
+                attached_gas: FINISH_FORWARD_GAS,
+            },
+        )
+    };
+
+    io.promise_return(promise_id);
 }
 
-#[ext_contract(ext_fees)]
-pub trait ExtFeesCalculator {
-    fn calculate_fees(
-        &self,
-        amount: U128,
-        token_id: &AccountId,
-        target_network: &AccountId,
-        target_address: &str,
-    ) -> U128;
-}
+fn forward_nep141_token<I: IO + Env + PromiseHandler>(mut io: I, token_id: AccountId) {
+    let callback_args = types::to_borsh(&token_id).sdk_unwrap();
+    let promise_id = unsafe {
+        io.promise_create_with_callback(&PromiseWithCallbackArgs {
+            base: PromiseCreateArgs {
+                target_account_id: token_id,
+                method: "ft_balance_of",
+                args: ft_balance_args(&io.current_account_id()),
+                attached_balance: ZERO_YOCTO,
+                attached_gas: FT_BALANCE_GAS,
+            },
+            callback: PromiseCreateArgs {
+                target_account_id: io.current_account_id(),
+                method: "calculate_fees_callback",
+                args: callback_args,
+                attached_balance: ZERO_YOCTO,
+                attached_gas: CALCULATE_FEES_CALLBACK_GAS,
+            },
+        })
+    };
 
-#[ext_contract(ext_wnear)]
-pub trait ExtWnear {
-    fn near_deposit(&self);
-}
-
-fn call_calculate_fees(
-    fees_contract_id: AccountId,
-    amount: U128,
-    token_id: &AccountId,
-    target_network: &AccountId,
-    target_address: &str,
-) -> Promise {
-    ext_fees::ext(fees_contract_id)
-        .with_static_gas(CALCULATE_FEES_GAS)
-        .calculate_fees(amount, token_id, target_network, target_address)
-}
-
-fn call_finish_forward(amount: U128, token_id: AccountId) -> Promise {
-    AuroraForwarder::ext(env::current_account_id())
-        .with_attached_deposit(2)
-        .with_static_gas(FINISH_FORWARD_GAS)
-        .finish_forward_callback(amount, token_id)
+    io.promise_return(promise_id);
 }
 
 // Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
-fn is_fee_allowed(amount: U128, fee: U128) -> bool {
-    match (fee.0 * 100)
-        .checked_div(amount.0)
-        .zip((fee.0 * 100).checked_rem(amount.0))
+fn is_fee_allowed(amount: u128, fee: u128) -> bool {
+    match (fee * 100)
+        .checked_div(amount)
+        .zip((fee * 100).checked_rem(amount))
     {
         Some((percent, _)) if percent > MAX_FEE_PERCENT => false,
         Some((percent, reminder)) if percent == MAX_FEE_PERCENT && reminder > 0 => false,
@@ -237,65 +271,20 @@ fn is_fee_allowed(amount: U128, fee: U128) -> bool {
     }
 }
 
-// Validate that forwarder account id has correct format.
-fn is_valid_account_id(
-    account_id: &AccountId,
-    address: &str,
-    target_network: &AccountId,
-    fees_contract_id: &AccountId,
-) -> bool {
-    let calculated_prefix = forwarder_prefix(address, target_network, fees_contract_id);
+struct NoopAllocator;
 
-    match account_id.as_str().split_once('.') {
-        Some((contract_prefix, _)) => contract_prefix == calculated_prefix,
-        _ => false,
+unsafe impl GlobalAlloc for NoopAllocator {
+    unsafe fn alloc(&self, _: Layout) -> *mut u8 {
+        core::ptr::null_mut()
     }
+
+    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {}
 }
 
-#[test]
-fn test_is_fee_allowed() {
-    let amount = U128(4000);
-
-    assert!(is_fee_allowed(amount, U128(0))); // fee is 0
-    assert!(is_fee_allowed(amount, U128(40))); // 1 %
-    assert!(is_fee_allowed(amount, U128(400))); // 10 %
-
-    assert!(!is_fee_allowed(amount, U128(401))); // 10.025 %
-    assert!(!is_fee_allowed(amount, U128(420))); // 10.5 %
-    assert!(!is_fee_allowed(amount, U128(600))); // 15 %
-    assert!(!is_fee_allowed(amount, U128(2000))); // 50 %
-    assert!(!is_fee_allowed(amount, U128(4000))); // 100 %
-    assert!(!is_fee_allowed(amount, U128(6000))); // 150 %
-}
-
-#[test]
-fn test_is_valid_account_id() {
-    let fees_account_id = "fees.test.near".parse().unwrap();
-
-    assert!(is_valid_account_id(
-        &"bk19tjl6h85n9waki5rpaajmwck6w5mjhjt1falg88bk.test.naar"
-            .parse()
-            .unwrap(),
-        "872a7faa3fd5c5129d0280b55d0639b840cb9f63",
-        &"silo-1.near".parse().unwrap(),
-        &fees_account_id,
-    ));
-
-    assert!(is_valid_account_id(
-        &"acbgmas72tf1lcud3uvjftx15fa1fhjlbjuj86ztwchj.test.naar"
-            .parse()
-            .unwrap(),
-        "61fa6bbf21287633db939dc38f5d0e68f1083062",
-        &"silo-2.near".parse().unwrap(),
-        &fees_account_id,
-    ));
-
-    assert!(!is_valid_account_id(
-        &"f4dlqigd5psykkz6kennmmvmdfq7fdetiuchemwmapnd.test.naar"
-            .parse()
-            .unwrap(),
-        "61fa6bbf21287633db939dc38f5d0e68f1083062",
-        &"silo-3.near".parse().unwrap(),
-        &fees_account_id,
-    ));
+#[cfg(target_arch = "wasm32")]
+#[panic_handler]
+/// On panic handler.
+/// # Safety
+pub unsafe fn on_panic(_: &::core::panic::PanicInfo) -> ! {
+    ::core::arch::wasm32::unreachable();
 }

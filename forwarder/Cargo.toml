@@ -18,5 +18,6 @@ pedantic = "deny"
 as_conversions = "deny"
 
 [dependencies]
-forwarder-utils = {path = "../utils" }
-near-sdk.workspace = true
+arrayvec = { version = "0.7", default-features = false }
+borsh = { version = "1", default-features = false, features = ["derive"] }
+hex = { version = "0.4", default-features = false }

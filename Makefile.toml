@@ -43,7 +43,7 @@ args = [
     "--all-targets"
 ]
 
-[tasks.build-contracts]
+[tasks.build-forwarder]
 command = "cargo"
 env = { "RUSTFLAGS" = "-C link-arg=-s" }
 args = [
@@ -51,18 +51,30 @@ args = [
     "--target",
     "${TARGET}",
     "--release",
-    "--workspace",
-    "--exclude",
-    "aurora-forwarder-tests",
-    "--exclude",
-    "aurora-forwarder-factory"
+    "--package",
+    "aurora-forwarder"
 ]
+
+[tasks.build-fees]
+command = "cargo"
+env = { "RUSTFLAGS" = "-C link-arg=-s" }
+args = [
+    "build",
+    "--target",
+    "${TARGET}",
+    "--release",
+    "--package",
+    "aurora-forward-fees",
+]
+
+[tasks.build-contracts]
+dependencies = ["build-forwarder", "build-fees"]
 
 [tasks.optimize-contracts]
 dependencies = ["download-wasm-opt"]
 script = '''
    filesize_before=$(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')
-   res/binaryen/bin/wasm-opt -O4 res/${FWD_WASM_FILE} -o res/${FWD_WASM_FILE} --strip-debug --vacuum
+   res/binaryen/bin/wasm-opt -Os res/${FWD_WASM_FILE} -o res/${FWD_WASM_FILE}
    filesize_after=$(wc -c res/${FWD_WASM_FILE} | awk '{print $1}')
    echo "File size before: [$filesize_before] and after: [$filesize_after]"
  '''

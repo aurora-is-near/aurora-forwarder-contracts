@@ -1,6 +1,6 @@
 use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
-use aurora_forwarder_factory::DeployParameters;
+use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE, MAX_NUM_CONTRACTS};
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use near_workspaces::AccountId;
 use once_cell::sync::Lazy;
@@ -11,10 +11,8 @@ mod wrap;
 
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
-const MAX_NUM_CONTRACTS: usize = 8;
-const MIN_FWD_BALANCE: NearToken = NearToken::from_millinear(1530);
 
-static WNEAR: Lazy<AccountId> = Lazy::new(|| "wrap.test.near".parse().unwrap());
+static WNEAR: Lazy<AccountId> = Lazy::new(|| AccountId::from_str("wrap.test.near").unwrap());
 
 #[tokio::test]
 async fn test_creating_ft() {
@@ -143,7 +141,7 @@ async fn test_forward_two_tokens() {
         .create(&[DeployParameters {
             target_address: RECEIVER.to_string(),
             target_network: aurora.id().as_str().parse().unwrap(),
-            wnear_contract_id: WNEAR.parse().unwrap(),
+            wnear_contract_id: WNEAR.clone(),
         }])
         .await
         .unwrap();
@@ -226,7 +224,7 @@ async fn test_using_factory() {
     assert_eq!(forwarder_ids.len(), MAX_NUM_CONTRACTS);
 
     for (id, params) in forwarder_ids.iter().zip(parameters) {
-        assert!(sandbox.balance(id).await > MIN_FWD_BALANCE.as_yoctonear());
+        assert!(sandbox.balance(id).await > INIT_BALANCE.as_yoctonear());
 
         let expected_id = format!(
             "{}.{factory_id}",
@@ -279,22 +277,21 @@ async fn test_successful_complicated_flow() {
 
     let factory = sandbox.deploy_factory(fees.id()).await.unwrap();
 
-    let wnear_contract_id: near_sdk::AccountId = WNEAR.parse().unwrap();
     let parameters = [
         DeployParameters {
             target_address: alice_address.to_string(),
             target_network: silo1.id().as_str().parse().unwrap(),
-            wnear_contract_id: wnear_contract_id.clone(),
+            wnear_contract_id: WNEAR.clone(),
         },
         DeployParameters {
             target_address: bob_address.to_string(),
             target_network: silo2.id().as_str().parse().unwrap(),
-            wnear_contract_id: wnear_contract_id.clone(),
+            wnear_contract_id: WNEAR.clone(),
         },
         DeployParameters {
             target_address: john_address.to_string(),
             target_network: silo3.id().as_str().parse().unwrap(),
-            wnear_contract_id,
+            wnear_contract_id: WNEAR.clone(),
         },
     ];
     let forward_ids: [_; 3] = factory

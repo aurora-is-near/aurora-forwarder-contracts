@@ -1,3 +1,4 @@
+use aurora_engine_types::types::Address;
 use forwarder_utils::forwarder_prefix;
 use near_sdk::serde_json::json;
 use near_workspaces::types::NearToken;
@@ -156,14 +157,10 @@ impl Sandbox {
         let result = fwd_account.deploy(&code(FORWARDER_WASM_PATH)).await?;
         assert!(result.is_success());
         let contract = result.result;
+        let address = Address::decode(address.trim_start_matches("0x")).unwrap();
         let result = fwd_account
             .call(contract.id(), "new")
-            .args_json(json!({
-                "target_address": address,
-                "target_network": target_network,
-                "fees_contract_id": fees_account_id,
-                "wnear_contract_id": wnear_contract_id,
-            }))
+            .args_borsh((address, target_network, wnear_contract_id, fees_account_id))
             .max_gas()
             .transact()
             .await?;
