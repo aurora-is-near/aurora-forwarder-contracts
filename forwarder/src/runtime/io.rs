@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::runtime::sys::exports;
 use crate::runtime::{RegisterIndex, Runtime};
-use crate::types::Vec;
+use crate::types::{to_borsh, Vec};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 pub trait StorageIntermediate: Sized {
@@ -87,8 +87,8 @@ pub trait IO {
         key: &[u8],
         value: &T,
     ) -> Option<Self::StorageValue> {
-        let bytes = borsh::to_vec(&value).ok()?;
-        self.write_storage(key, &bytes)
+        let bytes = to_borsh(&value).ok()?;
+        self.write_storage(key, &bytes[..])
     }
 }
 

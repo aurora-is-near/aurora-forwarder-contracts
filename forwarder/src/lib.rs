@@ -2,6 +2,7 @@
 #![allow(clippy::module_name_repetitions, clippy::as_conversions)]
 
 use borsh::BorshDeserialize;
+use core::alloc::{GlobalAlloc, Layout};
 
 use crate::error::ContractError;
 use crate::params::{
@@ -21,9 +22,9 @@ mod types;
 
 #[cfg(target_arch = "wasm32")]
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOCATOR: NoopAllocator = NoopAllocator;
 
-const MINIMUM_BALANCE: u128 = 385_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 360_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
 const MAX_FEE_PERCENT: u128 = 10;
 
@@ -268,6 +269,16 @@ fn is_fee_allowed(amount: u128, fee: u128) -> bool {
         Some((percent, reminder)) if percent == MAX_FEE_PERCENT && reminder > 0 => false,
         _ => true,
     }
+}
+
+struct NoopAllocator;
+
+unsafe impl GlobalAlloc for NoopAllocator {
+    unsafe fn alloc(&self, _: Layout) -> *mut u8 {
+        core::ptr::null_mut()
+    }
+
+    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {}
 }
 
 #[cfg(target_arch = "wasm32")]
