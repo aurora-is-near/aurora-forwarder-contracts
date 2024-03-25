@@ -24,7 +24,7 @@ mod types;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-const MINIMUM_BALANCE: u128 = 445_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 440_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
 const MAX_FEE_PERCENT: u128 = 10;
 

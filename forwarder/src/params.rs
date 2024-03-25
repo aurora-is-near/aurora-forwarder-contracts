@@ -66,7 +66,7 @@ pub fn ft_transfer_call_args(receiver_id: &AccountId, amount: u128, address: Add
     result.push_str(address_str.as_str());
     result.push_str(r#""}"#);
 
-    Vec::try_from(result.as_bytes()).unwrap()
+    Vec::try_from(result.as_bytes()).unwrap_or_default()
 }
 
 pub fn ft_transfer_args(receiver_id: &AccountId, amount: u128) -> Vec<u8> {
@@ -78,17 +78,17 @@ pub fn ft_transfer_args(receiver_id: &AccountId, amount: u128) -> Vec<u8> {
     result.push_str(amount_to_str(amount).as_str());
     result.push_str(r#""}"#);
 
-    Vec::try_from(result.as_bytes()).unwrap()
+    Vec::try_from(result.as_bytes()).unwrap_or_default()
 }
 
-pub fn ft_balance_args(account_id: &AccountId) -> crate::types::Vec<u8> {
+pub fn ft_balance_args(account_id: &AccountId) -> Vec<u8> {
     let mut result = ArrayString::<128>::new();
 
     result.push_str(r#"{"account_id":""#);
     result.push_str(account_id.as_str());
     result.push_str(r#""}"#);
 
-    crate::types::Vec::try_from(result.as_bytes()).unwrap()
+    Vec::try_from(result.as_bytes()).unwrap_or_default()
 }
 
 fn amount_to_str(mut amount: u128) -> ArrayString<39> {
@@ -105,7 +105,7 @@ fn amount_to_str(mut amount: u128) -> ArrayString<39> {
             amount /= 10;
             len += 1;
         }
-        buf[0..len].reverse();
+        buf[..len].reverse();
     }
 
     let mut result = ArrayString::<39>::new();
