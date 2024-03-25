@@ -1,4 +1,4 @@
-use crate::types::{AccountId, PublicKey, Vec};
+use crate::types::{AccountId, Vec};
 
 pub struct PromiseCreateArgs {
     pub target_account_id: AccountId,
@@ -19,7 +19,7 @@ pub struct PromiseBatchAction<const S: usize> {
 }
 
 pub enum PromiseAction {
-    AddFullAccessKey { public_key: PublicKey, nonce: u64 },
+    AddFullAccessKey { public_key: [u8; 33], nonce: u64 },
 }
 
 #[allow(clippy::large_enum_variant)]

@@ -1,6 +1,6 @@
 use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
-use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE};
+use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE, MAX_NUM_CONTRACTS};
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use near_workspaces::AccountId;
 use once_cell::sync::Lazy;
@@ -11,7 +11,6 @@ mod wrap;
 
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
-const MAX_NUM_CONTRACTS: usize = 8;
 
 static WNEAR: Lazy<AccountId> = Lazy::new(|| AccountId::from_str("wrap.test.near").unwrap());
 

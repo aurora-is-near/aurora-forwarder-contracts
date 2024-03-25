@@ -9,9 +9,9 @@ use near_sdk::{
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
 const STORAGE_BALANCE_BOUND: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const FORWARDER_NEW_GAS: Gas = Gas::from_tgas(5);
-const MAX_NUM_CONTRACTS: usize = 8;
 
-pub const INIT_BALANCE: NearToken = NearToken::from_millinear(440);
+pub const MAX_NUM_CONTRACTS: usize = 10;
+pub const INIT_BALANCE: NearToken = NearToken::from_millinear(385);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]

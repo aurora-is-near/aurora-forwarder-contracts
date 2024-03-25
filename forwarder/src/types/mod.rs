@@ -7,14 +7,12 @@ pub use address::Address;
 pub use promise::{
     PromiseAction, PromiseBatchAction, PromiseCreateArgs, PromiseResult, PromiseWithCallbackArgs,
 };
-pub use public_key::PublicKey;
 
 pub type Vec<T> = arrayvec::ArrayVec<T, 256>;
 
 mod account_id;
 mod address;
 mod promise;
-mod public_key;
 
 pub fn to_borsh<T>(value: &T) -> Result<Vec<u8>, ContractError>
 where

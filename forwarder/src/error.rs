@@ -7,7 +7,6 @@ pub enum ContractError {
     PrivateCallError,
     BadUtf8String,
     BadNumber,
-    Other,
 }
 
 impl AsRef<[u8]> for ContractError {
@@ -20,7 +19,6 @@ impl AsRef<[u8]> for ContractError {
             Self::PrivateCallError => b"ERR_PRIVATE_CALL",
             Self::BadUtf8String => b"ERR_BAD_UTF8_STRING",
             Self::BadNumber => b"ERR_BAD_NUMBER",
-            Self::Other => b"ERR_OTHER",
         }
     }
 }

@@ -62,7 +62,7 @@ impl Runtime {
         for action in &args.actions {
             match action {
                 PromiseAction::AddFullAccessKey { public_key, nonce } => {
-                    let pk_bytes = public_key.as_bytes();
+                    let pk_bytes = public_key.as_slice();
                     exports::promise_batch_action_add_key_with_full_access(
                         id,
                         pk_bytes.len() as _,
