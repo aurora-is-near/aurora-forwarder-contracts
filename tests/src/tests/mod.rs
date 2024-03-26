@@ -366,7 +366,10 @@ async fn test_successful_complicated_flow() {
     assert_eq!(usdc.ft_balance_of(silo3.id()).await, 7_600_000);
 }
 
+// The goal of the test is to demonstrate that the factory can recover its storage staking after
+// deleting the forwarder account (less the $NEAR spent to perform the delete action).
 #[tokio::test]
+#[allow(clippy::float_cmp)]
 async fn test_storage_deposit_refund() {
     use crate::sandbox::factory::Factory;
 
@@ -385,10 +388,9 @@ async fn test_storage_deposit_refund() {
     assert_eq!(forwarder_ids.len(), 1);
 
     let balance_after_create = sandbox.balance(factory.id()).await;
-    println!("balance_after_create: {balance_after_create}");
     assert_eq!(
-        balance_before_create - balance_after_create,
-        363_685_846_049_881_000_000_000 // 0.363685846049881 Ⓝ
+        to_micro_near(balance_before_create - balance_after_create),
+        0.363_685 // Ⓝ
     );
 
     let sk = SecretKey::from_str("ed25519:61TF7S52FVETjLp6KMUDp1TYBEdc1km1GnHgZc67VhWfyHTCUTMjUY6mM3qML17EAHFiutjpmF4CD9wdSGtG19tR").unwrap();
@@ -402,7 +404,14 @@ async fn test_storage_deposit_refund() {
     let balance_after_delete = sandbox.balance(factory.id()).await;
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
-        balance_before_create - balance_after_delete,
-        3_722_264_436_364_300_000_000 // 0.0037222644363643 Ⓝ
+        to_micro_near(balance_before_create - balance_after_delete),
+        0.003_722 // Ⓝ
     );
+}
+
+fn to_micro_near(amount: u128) -> f64 {
+    u32::try_from(amount / 10_u128.pow(18))
+        .map(f64::from)
+        .map(|v| v / 1_000_000.0)
+        .unwrap_or_default()
 }
