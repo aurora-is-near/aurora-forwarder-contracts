@@ -389,7 +389,7 @@ async fn test_storage_deposit_refund() {
 
     let balance_after_create = sandbox.balance(factory.id()).await;
     assert_eq!(
-        to_micro_near(balance_before_create - balance_after_create),
+        to_near(balance_before_create - balance_after_create),
         0.363_685 // Ⓝ
     );
 
@@ -404,12 +404,12 @@ async fn test_storage_deposit_refund() {
     let balance_after_delete = sandbox.balance(factory.id()).await;
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
-        to_micro_near(balance_before_create - balance_after_delete),
+        to_near(balance_before_create - balance_after_delete),
         0.003_722 // Ⓝ
     );
 }
 
-fn to_micro_near(amount: u128) -> f64 {
+fn to_near(amount: u128) -> f64 {
     u32::try_from(amount / 10_u128.pow(18))
         .map(f64::from)
         .map(|v| v / 1_000_000.0)
