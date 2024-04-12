@@ -74,7 +74,11 @@ impl FeesCalculator {
     /// Panics if the invoker of the transaction is not owner.
     #[allow(clippy::needless_pass_by_value)]
     pub fn set_fee_percent(&mut self, percent: Option<String>) {
-        assert_eq!(env::predecessor_account_id(), self.owner, "Only owner can set fee percent");
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner,
+            "Only owner can set fee percent"
+        );
 
         match parse_percent(percent.as_deref()) {
             Ok(value) => self.percent = value,
@@ -102,7 +106,11 @@ impl FeesCalculator {
     ///
     /// Panic if the added token is already exist.
     pub fn add_supported_token(&mut self, token_id: AccountId) {
-        assert_eq!(env::predecessor_account_id(), self.owner, "Only owner can add token");
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner,
+            "Only owner can add token"
+        );
         assert!(
             self.supported_tokens.insert(token_id),
             "Token is already present"
@@ -115,7 +123,11 @@ impl FeesCalculator {
     ///
     /// Panics if the removed token is not exists.
     pub fn remove_supported_token(&mut self, token_id: &AccountId) {
-        assert_eq!(env::predecessor_account_id(), self.owner, "Only owner can remove token");
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner,
+            "Only owner can remove token"
+        );
         assert!(
             self.supported_tokens.remove(token_id),
             "Nothing to remove, token: {token_id} hasn't been added"
