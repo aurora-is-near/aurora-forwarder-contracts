@@ -59,11 +59,19 @@ impl FeesCalculator {
         if self.percent.is_none() || !self.supported_tokens.contains(token_id) {
             0.into()
         } else {
-            u128::from(self.percent.unwrap().0)
+            let fee = u128::from(self.percent.unwrap().0)
                 .checked_mul(amount.0)
                 .unwrap_or_default()
-                .saturating_div(10000)
-                .into()
+                .saturating_div(10000);
+
+            // if the fee was computed to `0`
+            // i.e. because the amount was too small
+            // we substitute it with our minimal possible fee, which is `1`
+            if fee == 0 {
+                1.into()
+            } else {
+                fee.into()
+            }
         }
     }
 
@@ -243,6 +251,22 @@ mod tests {
         assert_eq!(
             contract.calculate_fees(1000.into(), &usdt, &aurora, target_address),
             0.into()
+        );
+    }
+
+    #[test]
+    fn test_fee_is_never_rounded_to_zero_for_small_numbers() {
+        let aurora = "aurora".parse().unwrap();
+        let target_address = Address::default();
+        let usdt: AccountId = "usdt.near".parse().unwrap();
+        let mut contract = FeesCalculator::new(vec![]);
+        contract.set_fee_percent(Some("5".to_string()));
+
+        contract.add_supported_token(usdt.clone());
+
+        assert_eq!(
+            contract.calculate_fees(1.into(), &usdt, &aurora, target_address),
+            1.into()
         );
     }
 
