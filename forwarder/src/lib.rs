@@ -103,7 +103,7 @@ pub extern "C" fn calculate_fees_callback() {
     };
 
     let promise_id = unsafe {
-        let promise_id = io.promise_create_and_combine(&[PromiseCreateArgs {
+        let promise_id = io.promise_create_call(&PromiseCreateArgs {
             target_account_id: state.fees_contract_id,
             method: "calculate_fees",
             args: types::to_borsh(&FeesParams {
@@ -115,7 +115,7 @@ pub extern "C" fn calculate_fees_callback() {
             .sdk_unwrap(),
             attached_balance: ZERO_YOCTO,
             attached_gas: CALCULATE_FEES_GAS,
-        }]);
+        });
 
         io.promise_attach_callback(
             promise_id,
