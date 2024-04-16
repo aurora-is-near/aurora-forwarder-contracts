@@ -24,9 +24,8 @@ mod types;
 #[global_allocator]
 static ALLOCATOR: NoopAllocator = NoopAllocator;
 
-const MINIMUM_BALANCE: u128 = 360_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 355_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
-const MAX_FEE_PERCENT: u128 = 10;
 
 const CALCULATE_FEES_GAS: u64 = 4_000_000_000_000;
 const NEAR_DEPOSIT_GAS: u64 = 2_000_000_000_000;
@@ -155,10 +154,6 @@ pub extern "C" fn finish_forward_callback() {
         _ => panic_utf8(b"FEE RESULT IS NOT READY"),
     };
 
-    if !is_fee_allowed(params.amount, fee) {
-        panic_utf8(b"FEE IS TOO BIG");
-    }
-
     let amount = params.amount.saturating_sub(fee);
 
     let mut promise_id = unsafe {
@@ -264,18 +259,6 @@ fn forward_nep141_token<I: IO + Env + PromiseHandler>(mut io: I, token_id: Accou
     };
 
     io.promise_return(promise_id);
-}
-
-// Validate that calculated part of the fee isn't more than `MAX_FEE_PERCENT`.
-fn is_fee_allowed(amount: u128, fee: u128) -> bool {
-    match (fee * 100)
-        .checked_div(amount)
-        .zip((fee * 100).checked_rem(amount))
-    {
-        Some((percent, _)) if percent > MAX_FEE_PERCENT => false,
-        Some((percent, reminder)) if percent == MAX_FEE_PERCENT && reminder > 0 => false,
-        _ => true,
-    }
 }
 
 struct NoopAllocator;
