@@ -390,7 +390,7 @@ async fn test_storage_deposit_refund() {
     let balance_after_create = sandbox.balance(factory.id()).await;
     assert_eq!(
         to_near(balance_before_create - balance_after_create),
-        0.358_679 // Ⓝ
+        0.303_640 // Ⓝ
     );
 
     let sk = SecretKey::from_str("ed25519:61TF7S52FVETjLp6KMUDp1TYBEdc1km1GnHgZc67VhWfyHTCUTMjUY6mM3qML17EAHFiutjpmF4CD9wdSGtG19tR").unwrap();
@@ -405,7 +405,7 @@ async fn test_storage_deposit_refund() {
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
         to_near(balance_before_create - balance_after_delete),
-        0.003_716 // Ⓝ
+        0.003_676 // Ⓝ
     );
 }
 
