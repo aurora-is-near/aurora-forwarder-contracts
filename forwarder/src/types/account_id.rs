@@ -64,6 +64,12 @@ impl AccountId {
 impl BorshDeserialize for AccountId {
     fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
         let len = <u32 as borsh::BorshDeserialize>::deserialize_reader(reader)? as usize;
+        if len < MIN_ACCOUNT_ID_LEN {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Expected a string at least 2 bytes long",
+            ));
+        }
         if len > MAX_ACCOUNT_ID_LEN {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
