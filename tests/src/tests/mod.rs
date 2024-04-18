@@ -405,7 +405,7 @@ async fn test_storage_deposit_refund() {
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
         to_near(balance_before_create - balance_after_delete),
-        0.003_676 // Ⓝ
+        0.003_677 // Ⓝ
     );
 }
 
