@@ -43,7 +43,7 @@ impl AuroraForwarderFactory {
     /// The reasons for panic:
     /// - if call the transaction not owner;
     /// - list of parameters is empty;
-    /// - list of parameters has more than 10 elements;
+    /// - list of parameters has more than `MAX_NUM_CONTRACTS` elements (consult implementation);
     /// - wrong parameters;
     #[must_use]
     pub fn create(&self, parameters: Vec<DeployParameters>) -> Vec<AccountId> {
