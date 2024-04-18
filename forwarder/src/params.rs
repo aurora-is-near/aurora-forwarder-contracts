@@ -57,13 +57,12 @@ pub fn ft_transfer_call_args(receiver_id: &AccountId, amount: u128, address: Add
     result.push_str(amount_to_str(amount).as_str());
     result.push_str(r#"","msg":""#);
 
-    let mut address_str = ArrayString::<40>::zero_filled();
+    let address_hex_iter = hex::BytesToHexIter::new(address.0.iter().copied());
 
-    unsafe {
-        hex::encode_to_slice(address.0, address_str.as_bytes_mut()).unwrap();
+    for c in address_hex_iter {
+        result.push(c);
     }
 
-    result.push_str(address_str.as_str());
     result.push_str(r#""}"#);
 
     Vec::try_from(result.as_bytes()).unwrap_or_default()
@@ -154,8 +153,8 @@ fn test_ft_transfer_args() {
 
 #[test]
 fn test_ft_transfer_call_args() {
-    let mut address = [0; 20];
-    hex::decode_to_slice("7e5f4552091a69125d5dfcb7b8c2659029395bdf", &mut address).unwrap();
+    use hex::FromHex;
+    let address = <[u8; 20]>::from_hex("7e5f4552091a69125d5dfcb7b8c2659029395bdf").unwrap();
     let json = ft_transfer_call_args(
         &AccountId::new("test.near").unwrap(),
         12_345_670,
