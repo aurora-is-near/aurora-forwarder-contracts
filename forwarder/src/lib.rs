@@ -24,7 +24,7 @@ mod types;
 #[global_allocator]
 static ALLOCATOR: NoopAllocator = NoopAllocator;
 
-const MINIMUM_BALANCE: u128 = 355_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 300_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
 
 const CALCULATE_FEES_GAS: u64 = 4_000_000_000_000;

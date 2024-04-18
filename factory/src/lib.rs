@@ -14,7 +14,7 @@ const STORAGE_BALANCE_BOUND: NearToken = NearToken::from_yoctonear(1_250_000_000
 const FORWARDER_NEW_GAS: Gas = Gas::from_tgas(2);
 
 pub const MAX_NUM_CONTRACTS: usize = 12;
-pub const INIT_BALANCE: NearToken = NearToken::from_millinear(355);
+pub const INIT_BALANCE: NearToken = NearToken::from_millinear(300);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
