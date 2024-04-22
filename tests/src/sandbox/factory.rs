@@ -6,6 +6,7 @@ use near_workspaces::{AccountId, Contract};
 pub trait Factory {
     async fn create(&self, params: &[DeployParameters]) -> anyhow::Result<Vec<AccountId>>;
     async fn forward(&self, forwarder_id: &AccountId, token_id: &AccountId) -> anyhow::Result<()>;
+    async fn destroy(&self, forwarder_id: &AccountId) -> anyhow::Result<()>;
 }
 
 impl Factory for Contract {
@@ -30,6 +31,19 @@ impl Factory for Contract {
             .call(forwarder_id, "forward")
             .args_borsh(token_id)
             .deposit(NearToken::from_yoctonear(1))
+            .max_gas()
+            .transact()
+            .await
+            .unwrap();
+        assert!(result.is_success());
+
+        Ok(())
+    }
+
+    async fn destroy(&self, forwarder_id: &AccountId) -> anyhow::Result<()> {
+        let result = self
+            .as_account()
+            .call(forwarder_id, "destroy")
             .max_gas()
             .transact()
             .await

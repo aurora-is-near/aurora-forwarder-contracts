@@ -20,6 +20,7 @@ pub struct PromiseBatchAction<const S: usize> {
 
 pub enum PromiseAction {
     AddFullAccessKey { public_key: [u8; 33], nonce: u64 },
+    DeleteAccount { beneficiary_id: AccountId },
 }
 
 #[allow(clippy::large_enum_variant)]

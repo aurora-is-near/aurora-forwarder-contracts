@@ -6,15 +6,12 @@ use near_sdk::{
     Promise,
 };
 
-#[cfg(not(feature = "tests"))]
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
-#[cfg(feature = "tests")]
-const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder-tests.wasm");
 const STORAGE_BALANCE_BOUND: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const FORWARDER_NEW_GAS: Gas = Gas::from_tgas(2);
 
 pub const MAX_NUM_CONTRACTS: usize = 12;
-pub const INIT_BALANCE: NearToken = NearToken::from_millinear(300);
+pub const INIT_BALANCE: NearToken = NearToken::from_millinear(310);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -68,6 +65,7 @@ impl AuroraForwarderFactory {
                     target_network: &params.target_network,
                     wnear_contract_id: &params.wnear_contract_id,
                     fees_contract_id: &self.fees_contract_id,
+                    owner_id: &env::current_account_id(),
                 })
                 .expect("Couldn't create args");
 
@@ -125,6 +123,7 @@ pub struct ForwarderParameters<'a> {
     pub target_network: &'a AccountId,
     pub wnear_contract_id: &'a AccountId,
     pub fees_contract_id: &'a AccountId,
+    pub owner_id: &'a AccountId,
 }
 
 fn create_forwarder_id(

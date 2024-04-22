@@ -20,7 +20,7 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1"
-aurora-engine-types = { git = "https://github.com/aurora-is-near/aurora-engine", rev = "fbe7f33", default-features = false }
+aurora-engine-types = { version = "1.1", default-features = false }
 ethabi = "18"
 near-sdk = "5"
 near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", tag = "v0.2.0" }
