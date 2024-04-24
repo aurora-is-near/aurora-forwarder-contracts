@@ -2,8 +2,7 @@ use aurora_engine_types::types::Address;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    assert_self, env, ext_contract, near_bindgen, AccountId, Gas, NearToken, PanicOnDefault,
-    Promise,
+    env, ext_contract, near_bindgen, AccountId, Gas, NearToken, PanicOnDefault, Promise,
 };
 
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
@@ -43,8 +42,8 @@ impl AuroraForwarderFactory {
     /// - list of parameters has more than `MAX_NUM_CONTRACTS` elements (consult implementation);
     /// - wrong parameters;
     #[must_use]
+    #[private]
     pub fn create(&self, parameters: Vec<DeployParameters>) -> Vec<AccountId> {
-        assert_self();
         assert!(!parameters.is_empty(), "Parameters can't be empty");
         assert!(
             parameters.len() <= MAX_NUM_CONTRACTS,
@@ -90,9 +89,17 @@ impl AuroraForwarderFactory {
             .collect::<Vec<_>>()
     }
 
+    /// Forward tokens for a specific forwarder.
+    #[private]
+    pub fn forward(&mut self, forwarder_id: AccountId, token_id: AccountId) -> Promise {
+        ext_forwarder::ext(forwarder_id)
+            .with_attached_deposit(NearToken::from_yoctonear(1))
+            .forward(token_id)
+    }
+
     /// Set new fees contract id.
+    #[private]
     pub fn set_fees_contract_id(&mut self, fees_contract_id: AccountId) {
-        assert_self();
         self.fees_contract_id = fees_contract_id;
     }
 
@@ -101,11 +108,23 @@ impl AuroraForwarderFactory {
     pub const fn get_fees_contract_id(&self) -> &AccountId {
         &self.fees_contract_id
     }
+
+    /// Destroy forwarder.
+    #[private]
+    pub fn destroy(&mut self, account_id: AccountId) -> Promise {
+        ext_forwarder::ext(account_id).destroy()
+    }
 }
 
 #[ext_contract(ext_token)]
 pub trait ExtToken {
     fn storage_deposit(&self, account_id: AccountId);
+}
+
+#[ext_contract(ext_forwarder)]
+pub trait ExtForwarder {
+    fn forward(&self, #[serializer(borsh)] token_id: AccountId);
+    fn destroy(&self);
 }
 
 #[derive(Deserialize, Serialize)]
