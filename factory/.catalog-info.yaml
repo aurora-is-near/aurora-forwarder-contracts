@@ -1,0 +1,19 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aurora-forwarder-factory
+  description: Forwarder Factory
+  tags:
+    - contract
+    - near
+  links: []
+  annotations:
+    aurora.dev/security-tier: "2"
+spec:
+  owner: engine-team
+  type: contract
+  lifecycle: production
+  system: forwarder
+  deployedAt:
+    - contract:near/mainnet/deposit.aurora
