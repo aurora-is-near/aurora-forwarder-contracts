@@ -1,0 +1,9 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: aurora-forwarder-contracts
+  description: Public Aurora Forwarder repository
+spec:
+  targets:
+    - ./**/.catalog-info.yaml
