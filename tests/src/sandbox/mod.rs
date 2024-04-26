@@ -222,8 +222,11 @@ fn code(path: &str) -> Vec<u8> {
 async fn add_function_key(contract: &Contract) -> anyhow::Result<SecretKey> {
     let sk = SecretKey::from_random(near_workspaces::types::KeyType::ED25519);
     let pk = sk.public_key();
-    let key =
-        AccessKey::function_call_access(contract.id(), &["create", "forward", "destroy"], None);
+    let key = AccessKey::function_call_access(
+        contract.id(),
+        &["create", "forward_tokens", "destroy_forwarder"],
+        None,
+    );
     let result = contract.batch().add_key(pk, key).transact().await?;
 
     result

@@ -91,7 +91,7 @@ impl AuroraForwarderFactory {
 
     /// Forward tokens for a specific forwarder.
     #[private]
-    pub fn forward(&mut self, forwarder_id: AccountId, token_id: AccountId) -> Promise {
+    pub fn forward_tokens(&mut self, forwarder_id: AccountId, token_id: AccountId) -> Promise {
         ext_forwarder::ext(forwarder_id)
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .forward(token_id)
@@ -111,7 +111,7 @@ impl AuroraForwarderFactory {
 
     /// Destroy forwarder.
     #[private]
-    pub fn destroy(&mut self, account_id: AccountId) -> Promise {
+    pub fn destroy_forwarder(&mut self, account_id: AccountId) -> Promise {
         ext_forwarder::ext(account_id).destroy()
     }
 }

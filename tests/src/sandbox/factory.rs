@@ -26,7 +26,7 @@ impl Factory for Contract {
 
     async fn forward(&self, forwarder_id: &AccountId, token_id: &AccountId) -> anyhow::Result<()> {
         let result = self
-            .call("forward")
+            .call("forward_tokens")
             .args_json(json!({
                 "forwarder_id": forwarder_id,
                 "token_id": token_id
@@ -42,7 +42,7 @@ impl Factory for Contract {
 
     async fn destroy(&self, account_id: &AccountId) -> anyhow::Result<()> {
         let result = self
-            .call("destroy")
+            .call("destroy_forwarder")
             .args_json(json!({
                 "account_id": account_id
             }))
