@@ -13,32 +13,18 @@ FEES_WASM_FILE = "aurora-forwarder-fees.wasm"
 dependencies = [
     "build-forwarder",
     "build-fees",
-    "mv-contracts",
+    "cp-contracts",
     "optimize-forwarder",
     "build-factory",
-    "mv-factory",
+    "cp-factory",
     "contract-stats",
-]
-
-[tasks.build-tests]
-dependencies = [
-    "build-forwarder",
-    "mv-forwarder",
-    "optimize-forwarder",
-    "build-forwarder-tests",
-    "build-fees",
-    "mv-contracts",
-    "optimize-forwarder-tests",
-    "build-factory-tests",
-    "mv-factory",
-    "contract-stats"
 ]
 
 [tasks.clippy]
 command = "cargo"
 dependencies = [
     "build-forwarder",
-    "mv-forwarder",
+    "cp-forwarder",
 ]
 args = [
     "clippy",
@@ -51,13 +37,11 @@ alias = "tests"
 
 [tasks.tests]
 dependencies = [
-    "build-tests"
+    "build"
 ]
 command = "cargo"
 args = [
     "test",
-    "--features",
-    "tests",
     "--all-targets"
 ]
 
@@ -71,20 +55,6 @@ args = [
     "--release",
     "--package",
     "aurora-forwarder"
-]
-
-[tasks.build-forwarder-tests]
-command = "cargo"
-env = { "RUSTFLAGS" = "-C link-arg=-s", "FWD_WASM_FILE" = "aurora-forwarder-tests.wasm" }
-args = [
-    "build",
-    "--target",
-    "${TARGET}",
-    "--release",
-    "--package",
-    "aurora-forwarder",
-    "--features",
-    "tests"
 ]
 
 [tasks.build-fees]
@@ -107,9 +77,6 @@ script = '''
    filesize_after=$(wc -c ${TARGET_DIR}/${FWD_WASM_FILE} | awk '{print $1}')
    echo "File size before: [$filesize_before] and after: [$filesize_after]"
  '''
-
-[tasks.optimize-forwarder-tests]
-alias = "optimize-forwarder"
 
 [tasks.download-wasm-opt]
 script_runner = "bash"
@@ -152,34 +119,20 @@ args = [
     "aurora-forwarder-factory"
 ]
 
-[tasks.build-factory-tests]
-command = "cargo"
-env = { "RUSTFLAGS" = "-C link-arg=-s", "FWD_FACTORY_WASM_FILE" = "aurora-forwarder-factory-tests.wasm" }
-args = [
-    "build",
-    "--target",
-    "${TARGET}",
-    "--release",
-    "-p",
-    "aurora-forwarder-factory",
-    "--features",
-    "tests"
-]
-
-[tasks.mv-contracts]
+[tasks.cp-contracts]
 script = """
-mv target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
-mv target/${TARGET}/release/aurora_forwarder_fees.wasm ${TARGET_DIR}/${FEES_WASM_FILE}
+cp target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
+cp target/${TARGET}/release/aurora_forwarder_fees.wasm ${TARGET_DIR}/${FEES_WASM_FILE}
 """
 
-[tasks.mv-forwarder]
+[tasks.cp-forwarder]
 script = """
-mv target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
+cp target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
 """
 
-[tasks.mv-factory]
+[tasks.cp-factory]
 script = """
-mv target/${TARGET}/release/aurora_forwarder_factory.wasm ${TARGET_DIR}/${FWD_FACTORY_WASM_FILE}
+cp target/${TARGET}/release/aurora_forwarder_factory.wasm ${TARGET_DIR}/${FWD_FACTORY_WASM_FILE}
 """
 
 [tasks.clean]

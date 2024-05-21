@@ -70,6 +70,14 @@ impl Runtime {
                         *nonce,
                     );
                 }
+                PromiseAction::DeleteAccount { beneficiary_id } => {
+                    let beneficiary_id_str = beneficiary_id.as_str();
+                    exports::promise_batch_action_delete_account(
+                        id,
+                        beneficiary_id_str.len() as _,
+                        beneficiary_id_str.as_ptr() as _,
+                    );
+                }
             }
         }
     }

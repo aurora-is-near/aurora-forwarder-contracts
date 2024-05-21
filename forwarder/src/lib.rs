@@ -24,7 +24,7 @@ mod types;
 #[global_allocator]
 static ALLOCATOR: NoopAllocator = NoopAllocator;
 
-const MINIMUM_BALANCE: u128 = 300_000_000_000_000_000_000_000;
+const MINIMUM_BALANCE: u128 = 310_000_000_000_000_000_000_000;
 const ZERO_YOCTO: u128 = 0;
 
 const CALCULATE_FEES_GAS: u64 = 4_000_000_000_000;
@@ -37,16 +37,9 @@ const FINISH_FORWARD_GAS: u64 = 70_000_000_000_000;
 
 // Key is used for upgrading the smart contract.
 // base58 representation of the key is: "ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno";
-#[cfg(not(feature = "tests"))]
 const UPDATER_PK: [u8; 33] = [
     0, 157, 55, 171, 39, 212, 8, 14, 19, 58, 101, 78, 158, 202, 229, 222, 152, 23, 144, 112, 79,
     136, 229, 203, 142, 41, 95, 170, 31, 58, 47, 213, 152,
-];
-// base58 representation of the key is: "ed25519:BhnXcbxBgniLoG5LEnyeYHkJvzpuzy22eFuzssNCBtu3";
-#[cfg(feature = "tests")]
-const UPDATER_PK: [u8; 33] = [
-    0, 159, 7, 148, 129, 146, 220, 189, 217, 236, 230, 111, 126, 201, 235, 59, 13, 109, 76, 138,
-    133, 249, 235, 39, 194, 138, 171, 236, 30, 35, 237, 155, 214,
 ];
 // In case we get near as a token id it means we need to transfer native NEAR tokens.
 const NEAR: &str = "near";
@@ -258,6 +251,28 @@ fn forward_nep141_token<I: IO + Env + PromiseHandler>(mut io: I, token_id: Accou
         })
     };
 
+    io.promise_return(promise_id);
+}
+
+#[no_mangle]
+pub extern "C" fn destroy() {
+    let mut io = Runtime;
+    let state = State::load(&io).sdk_expect("No state");
+    let predecessor_id = io.predecessor_account_id();
+
+    if !state.is_owner(predecessor_id) {
+        panic_utf8(b"ONLY OWNER CAN DESTROY");
+    }
+
+    let current_account_id = io.current_account_id();
+    let promise = PromiseBatchAction {
+        target_account_id: current_account_id,
+        actions: [PromiseAction::DeleteAccount {
+            beneficiary_id: predecessor_id,
+        }],
+    };
+
+    let promise_id = unsafe { io.promise_create_batch(&promise) };
     io.promise_return(promise_id);
 }
 

@@ -15,6 +15,7 @@ pub struct State {
     pub target_network: AccountId,
     pub wnear_contract_id: AccountId,
     pub fees_contract_id: AccountId,
+    pub owner_id: AccountId,
 }
 
 impl State {
@@ -25,6 +26,10 @@ impl State {
     pub fn load<I: IO>(io: &I) -> Option<Self> {
         let data = io.read_storage(STATE_STORAGE_KEY)?.to_vec();
         Self::try_from_slice(data.as_slice()).ok()
+    }
+
+    pub fn is_owner(&self, account_id: AccountId) -> bool {
+        self.owner_id == account_id
     }
 }
 
@@ -125,6 +130,7 @@ fn test_deserialize_state() {
         target_network: AccountId::new("target.near").unwrap(),
         wnear_contract_id: AccountId::new("wnear.near").unwrap(),
         fees_contract_id: AccountId::new("fees.near").unwrap(),
+        owner_id: AccountId::new("owner.near").unwrap(),
     };
 
     let bytes = crate::types::to_borsh(&original).unwrap();

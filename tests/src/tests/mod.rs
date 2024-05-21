@@ -1,8 +1,8 @@
 use crate::sandbox::{aurora::Aurora, fungible_token::FungibleToken, Sandbox};
 use aurora_engine_types::types::Address;
 use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE, MAX_NUM_CONTRACTS};
-use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey, SecretKey};
-use near_workspaces::{AccountId, InMemorySigner};
+use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
+use near_workspaces::AccountId;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
@@ -191,25 +191,11 @@ async fn test_forward_two_tokens() {
 #[tokio::test]
 async fn test_using_full_access_key() {
     let sandbox = Sandbox::new().await.unwrap();
-    let pk = PublicKey::from_str("ed25519:BhnXcbxBgniLoG5LEnyeYHkJvzpuzy22eFuzssNCBtu3").unwrap();
-    let silo_account_id = "some.silo.near".parse().unwrap();
-    let fees_account_id = "fees.near".parse().unwrap();
-    let forwarder = sandbox
-        .deploy_forwarder(&silo_account_id, RECEIVER, &fees_account_id, &WNEAR)
-        .await
-        .unwrap();
-    let key = forwarder.view_access_key(&pk).await.unwrap();
-    assert!(matches!(key.permission, AccessKeyPermission::FullAccess));
-}
-
-#[tokio::test]
-async fn test_using_prod_full_access_key() {
-    let sandbox = Sandbox::new().await.unwrap();
     let pk = PublicKey::from_str("ed25519:BaiF3VUJf5pxB9ezVtzH4SejpdYc7EA3SqrKczsj1wno").unwrap();
     let silo_account_id = "some.silo.near".parse().unwrap();
     let fees_account_id = "fees.near".parse().unwrap();
     let forwarder = sandbox
-        .deploy_prod_forwarder(&silo_account_id, RECEIVER, &fees_account_id, &WNEAR)
+        .deploy_forwarder(&silo_account_id, RECEIVER, &fees_account_id, &WNEAR)
         .await
         .unwrap();
     let key = forwarder.view_access_key(&pk).await.unwrap();
@@ -250,6 +236,7 @@ async fn test_using_factory() {
         );
 
         assert_eq!(id.as_str(), expected_id);
+        assert!(factory.destroy(id).await.is_ok());
     }
 }
 
@@ -390,22 +377,16 @@ async fn test_storage_deposit_refund() {
     let balance_after_create = sandbox.balance(factory.id()).await;
     assert_eq!(
         to_near(balance_before_create - balance_after_create),
-        0.303_640 // Ⓝ
+        0.313_646 // Ⓝ
     );
 
-    let sk = SecretKey::from_str("ed25519:61TF7S52FVETjLp6KMUDp1TYBEdc1km1GnHgZc67VhWfyHTCUTMjUY6mM3qML17EAHFiutjpmF4CD9wdSGtG19tR").unwrap();
-    let signer = InMemorySigner::from_secret_key(forwarder_ids[0].clone(), sk);
-    let result = sandbox
-        .delete_account(&forwarder_ids[0], &signer, factory.id())
-        .await
-        .unwrap();
-    assert!(result.is_success());
+    factory.destroy(&forwarder_ids[0]).await.unwrap();
 
     let balance_after_delete = sandbox.balance(factory.id()).await;
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
         to_near(balance_before_create - balance_after_delete),
-        0.003_677 // Ⓝ
+        0.004_611 // Ⓝ
     );
 }
 
