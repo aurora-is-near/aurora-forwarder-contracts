@@ -8,6 +8,7 @@ use near_sdk::{
 const FORWARDER_WASM: &[u8] = include_bytes!("../../res/aurora-forwarder.wasm");
 const STORAGE_BALANCE_BOUND: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const FORWARDER_NEW_GAS: Gas = Gas::from_tgas(2);
+const FORWARD_TOKENS_GAS: Gas = Gas::from_tgas(150);
 
 pub const MAX_NUM_CONTRACTS: usize = 12;
 pub const INIT_BALANCE: NearToken = NearToken::from_millinear(310);
@@ -93,6 +94,7 @@ impl AuroraForwarderFactory {
     #[private]
     pub fn forward_tokens(&mut self, forwarder_id: AccountId, token_id: AccountId) -> Promise {
         ext_forwarder::ext(forwarder_id)
+            .with_static_gas(FORWARD_TOKENS_GAS)
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .forward(token_id)
     }
