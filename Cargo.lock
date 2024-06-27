@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-forwarder"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arrayvec",
  "borsh",
@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-forwarder-factory"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aurora-engine-types",
  "forwarder-utils",
@@ -438,7 +438,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-forwarder-fees"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aurora-engine-types",
  "near-sdk",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-forwarder-tests"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "aurora-engine-types",
@@ -1729,7 +1729,7 @@ dependencies = [
 
 [[package]]
 name = "forwarder-utils"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "near-sdk",
 ]
