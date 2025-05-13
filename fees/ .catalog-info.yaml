@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aurora-forwarder-fees
+  description: Forwarder Fees
+  tags:
+    - contract
+    - near
+  links: []
+  annotations:
+    aurora.dev/security-tier: "2"
+spec:
+  owner: engine-team
+  type: contract
+  lifecycle: production
+  system: forwarder
+  deployedAt:
+    - contract:near/mainnet/fees.deposit.aurora
