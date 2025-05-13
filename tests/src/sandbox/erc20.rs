@@ -23,7 +23,12 @@ impl Erc20 {
 
     pub async fn balance_of(&self, address: &str) -> u128 {
         let address = Address::decode(address.trim_start_matches("0x")).unwrap();
-        let input = build_input("balanceOf(address)", &[Token::Address(address.raw())]);
+        let input = build_input(
+            "balanceOf(address)",
+            &[Token::Address(ethabi::Address::from_slice(
+                address.as_bytes(),
+            ))],
+        );
         let near_result = self
             .aurora
             .call("call")

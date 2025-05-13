@@ -42,7 +42,8 @@ dependencies = [
 command = "cargo"
 args = [
     "test",
-    "--all-targets"
+    "--all-targets",
+    "${@}"
 ]
 
 [tasks.build-forwarder]
@@ -59,14 +60,17 @@ args = [
 
 [tasks.build-fees]
 command = "cargo"
-env = { "RUSTFLAGS" = "-C link-arg=-s" }
+install_crate = { crate_name = "cargo-near", binary = "cargo", min_version = "0.14.1", test_arg = ["near", "-h"], force = true }
 args = [
+    "near",
     "build",
-    "--target",
-    "${TARGET}",
-    "--release",
-    "--package",
-    "aurora-forwarder-fees",
+    "non-reproducible-wasm",
+    "--out-dir",
+    "${TARGET_DIR}",
+    "--manifest-path",
+    "fees/Cargo.toml",
+    "--no-embed-abi",
+    "--no-abi",
 ]
 
 [tasks.optimize-forwarder]
@@ -109,20 +113,23 @@ fi
 
 [tasks.build-factory]
 command = "cargo"
-env = { "RUSTFLAGS" = "-C link-arg=-s" }
+install_crate = { crate_name = "cargo-near", binary = "cargo", min_version = "0.14.1", test_arg = ["near", "-h"], force = true }
 args = [
+    "near",
     "build",
-    "--target",
-    "${TARGET}",
-    "--release",
-    "-p",
-    "aurora-forwarder-factory"
+    "non-reproducible-wasm",
+    "--out-dir",
+    "${TARGET_DIR}",
+    "--manifest-path",
+    "factory/Cargo.toml",
+    "--no-embed-abi",
+    "--no-abi",
 ]
 
 [tasks.cp-contracts]
 script = """
-cp target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
-cp target/${TARGET}/release/aurora_forwarder_fees.wasm ${TARGET_DIR}/${FEES_WASM_FILE}
+mv target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
+mv ${TARGET_DIR}/aurora_forwarder_fees.wasm ${TARGET_DIR}/${FEES_WASM_FILE}
 """
 
 [tasks.cp-forwarder]
@@ -132,7 +139,7 @@ cp target/${TARGET}/release/aurora_forwarder.wasm ${TARGET_DIR}/${FWD_WASM_FILE}
 
 [tasks.cp-factory]
 script = """
-cp target/${TARGET}/release/aurora_forwarder_factory.wasm ${TARGET_DIR}/${FWD_FACTORY_WASM_FILE}
+mv ${TARGET_DIR}/aurora_forwarder_factory.wasm ${TARGET_DIR}/${FWD_FACTORY_WASM_FILE}
 """
 
 [tasks.clean]

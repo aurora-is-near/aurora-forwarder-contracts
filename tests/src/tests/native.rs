@@ -5,10 +5,10 @@ use crate::sandbox::Sandbox;
 use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE};
 use near_workspaces::types::NearToken;
 use near_workspaces::AccountId;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 const BALANCE: NearToken = NearToken::from_near(10);
-static NEAR: Lazy<AccountId> = Lazy::new(|| "near".parse().unwrap());
+static NEAR: LazyLock<AccountId> = LazyLock::new(|| "near".parse().unwrap());
 
 #[tokio::test]
 async fn test_forward_native_tokens() {

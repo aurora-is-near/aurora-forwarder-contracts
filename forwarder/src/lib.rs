@@ -2,6 +2,7 @@
 #![allow(clippy::module_name_repetitions, clippy::as_conversions)]
 
 use borsh::BorshDeserialize;
+#[cfg(target_arch = "wasm32")]
 use core::alloc::{GlobalAlloc, Layout};
 
 use crate::error::ContractError;
@@ -276,8 +277,10 @@ pub extern "C" fn destroy() {
     io.promise_return(promise_id);
 }
 
+#[cfg(target_arch = "wasm32")]
 struct NoopAllocator;
 
+#[cfg(target_arch = "wasm32")]
 unsafe impl GlobalAlloc for NoopAllocator {
     unsafe fn alloc(&self, _: Layout) -> *mut u8 {
         core::ptr::null_mut()
