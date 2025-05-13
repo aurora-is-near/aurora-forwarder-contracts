@@ -20,7 +20,7 @@ const INIT_BALANCE_NEAR: NearToken = NearToken::from_near(50);
 const FORWARDER_MIN_BALANCE: NearToken = NearToken::from_near(2);
 
 pub struct Sandbox {
-    worker: Worker<near_workspaces::network::Sandbox>,
+    pub(crate) worker: Worker<near_workspaces::network::Sandbox>,
     root_account: Account,
 }
 

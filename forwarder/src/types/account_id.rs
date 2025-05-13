@@ -18,6 +18,7 @@ impl AccountId {
     }
 
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }

@@ -24,5 +24,4 @@ aurora-engine-types.workspace = true
 ethabi.workspace = true
 near-sdk = { workspace = true, features = ["unit-testing"] }
 near-workspaces.workspace = true
-once_cell.workspace = true
 tokio.workspace = true
