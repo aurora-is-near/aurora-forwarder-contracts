@@ -27,10 +27,6 @@ impl StorageIntermediate for RegisterIndex {
         }
     }
 
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
     fn copy_to_slice(&self, buffer: &mut [u8]) {
         unsafe { exports::read_register(self.0, buffer.as_ptr() as u64) }
     }
@@ -43,7 +39,6 @@ impl Runtime {
     pub const READ_STORAGE_REGISTER_ID: RegisterIndex = RegisterIndex(0);
     pub const INPUT_REGISTER_ID: RegisterIndex = RegisterIndex(1);
     pub const WRITE_REGISTER_ID: RegisterIndex = RegisterIndex(2);
-    pub const EVICT_REGISTER_ID: RegisterIndex = RegisterIndex(3);
     pub const ENV_REGISTER_ID: RegisterIndex = RegisterIndex(4);
     pub const PROMISE_REGISTER_ID: RegisterIndex = RegisterIndex(5);
 

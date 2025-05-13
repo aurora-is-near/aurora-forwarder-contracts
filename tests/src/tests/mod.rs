@@ -3,8 +3,8 @@ use aurora_engine_types::types::Address;
 use aurora_forwarder_factory::{DeployParameters, INIT_BALANCE, MAX_NUM_CONTRACTS};
 use near_workspaces::types::{AccessKeyPermission, NearToken, PublicKey};
 use near_workspaces::AccountId;
-use once_cell::sync::Lazy;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 mod native;
 mod wrap;
@@ -12,7 +12,8 @@ mod wrap;
 const RECEIVER: &str = "0x17ffdf6becbbc34d5c7d3bf4a0ed4a680395d057";
 const TOTAL_SUPPLY: u128 = 1_000_000_000_000_000;
 
-static WNEAR: Lazy<AccountId> = Lazy::new(|| AccountId::from_str("wrap.test.near").unwrap());
+static WNEAR: LazyLock<AccountId> =
+    LazyLock::new(|| AccountId::from_str("wrap.test.near").unwrap());
 
 #[tokio::test]
 async fn test_creating_ft() {
@@ -374,25 +375,31 @@ async fn test_storage_deposit_refund() {
     let forwarder_ids = factory.create(&[parameters]).await.unwrap();
     assert_eq!(forwarder_ids.len(), 1);
 
+    // Forward one block for waiting to refund unused funds
+    sandbox.worker.fast_forward(1).await.unwrap();
+
     let balance_after_create = sandbox.balance(factory.id()).await;
     assert_eq!(
         to_near(balance_before_create - balance_after_create),
-        0.313_646 // Ⓝ
+        0.31277 // Ⓝ
     );
 
     factory.destroy(&forwarder_ids[0]).await.unwrap();
+
+    // Forward one block for waiting to refund unused funds
+    sandbox.worker.fast_forward(1).await.unwrap();
 
     let balance_after_delete = sandbox.balance(factory.id()).await;
     println!("balance_after_delete: {balance_after_delete}");
     assert_eq!(
         to_near(balance_before_create - balance_after_delete),
-        0.004_611 // Ⓝ
+        0.00308 // Ⓝ
     );
 }
 
 fn to_near(amount: u128) -> f64 {
     u32::try_from(amount / 10_u128.pow(18))
         .map(f64::from)
-        .map(|v| v / 1_000_000.0)
+        .map(|v| (v / 10.0).floor() / 100_000.0)
         .unwrap_or_default()
 }

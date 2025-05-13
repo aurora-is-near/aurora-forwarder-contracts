@@ -12,7 +12,7 @@ async fn test_forward_wrap_near_tokens() {
     let sandbox = Sandbox::new().await.unwrap();
     let alice = sandbox.create_subaccount("alice", BALANCE).await.unwrap();
     let (wrap, wrap_owner) = sandbox.deploy_wrap_near().await.unwrap();
-    let fees = sandbox.deploy_fees(&[&wrap.id()]).await.unwrap();
+    let fees = sandbox.deploy_fees(&[wrap.id()]).await.unwrap();
     let silo = sandbox.deploy_aurora("silo").await.unwrap();
     let erc20 = silo.deploy_erc20(wrap.id()).await.unwrap();
     let forwarder = sandbox
