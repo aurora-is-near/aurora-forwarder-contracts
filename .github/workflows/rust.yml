@@ -10,7 +10,9 @@ on:
 jobs:
   fmt:
     name: Formatting
-    runs-on: github-hosted-heavy-runner
+    runs-on: k8s-infrastructure-native
+    container:
+      image: rust:latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -22,7 +24,9 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: github-hosted-heavy-runner
+    runs-on: k8s-infrastructure-native
+    container:
+      image: rust:latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -36,7 +40,9 @@ jobs:
 
   tests:
     name: Tests
-    runs-on: github-hosted-heavy-runner
+    runs-on: k8s-infrastructure-native
+    container:
+      image: rust:latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
