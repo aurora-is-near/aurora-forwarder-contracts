@@ -10,9 +10,7 @@ on:
 jobs:
   fmt:
     name: Formatting
-    runs-on: k8s-infrastructure-native
-    container:
-      image: rust:latest
+    runs-on: k8s-worker-4
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -24,36 +22,18 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: k8s-infrastructure-native
-    container:
-      image: rust:latest
+    runs-on: k8s-worker-4
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install cargo-make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
       - name: Run clippy
         run: cargo make clippy
 
   tests:
     name: Tests
-    runs-on: k8s-infrastructure-native
-    container:
-      image: rust:latest
+    runs-on: k8s-worker-6
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install libudev
-        run: |
-          apt update
-          apt install -y libudev-dev
-      - name: Install cargo-make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-make
       - name: Run tests
         run: cargo make tests
