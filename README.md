@@ -21,4 +21,3 @@ cargo make tests
 ```shell
 cargo make clippy
 ```
-
