@@ -33,6 +33,7 @@ jobs:
       - name: Install cargo-make
         uses: actions-rs/cargo@v1
         with:
+          toolchain: stable
           command: install
           args: cargo-make
       - name: Run clippy
